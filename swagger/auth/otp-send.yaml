@@ -1,0 +1,280 @@
+openapi: 3.0.0
+info:
+  title: OTP Send API
+  description: Génération et envoi de codes OTP par SMS avec validation complète
+  version: 1.0.0
+
+paths:
+  /v1/auth/otp/send:
+    post:
+      tags:
+        - Authentification
+      summary: Envoyer un code OTP par SMS
+      description: |
+        Génère un code de vérification à 4 chiffres et l'envoie par SMS au numéro fourni.
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - telephone
+              properties:
+                telephone:
+                  type: string
+                  pattern: '^[0-9]{8,10}$'
+                  description: |
+                    Numéro de téléphone ivoirien sans indicatif pays.
+                    - Format accepté : 8 à 10 chiffres uniquement
+                    - Exemples valides : "01234567", "0123456789"
+                    - Le middleware nettoie automatiquement les espaces et caractères spéciaux
+                  example: "0102030405"
+            examples:
+              numeroValide8:
+                summary: Numéro 8 chiffres (valide)
+                value:
+                  telephone: "01234567"
+              numeroValide10:
+                summary: Numéro 10 chiffres (valide)
+                value:
+                  telephone: "0123456789"
+              numeroAvecEspaces:
+                summary: Numéro avec espaces (sera nettoyé)
+                value:
+                  telephone: "01 02 03 04 05"
+
+      responses:
+        '200':
+          description: Code OTP généré et envoyé avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                    description: Indicateur de succès de l'opération
+                  message:
+                    type: string
+                    example: "Code de vérification envoyé par SMS"
+                    description: Message de confirmation
+                  data:
+                    type: object
+                    properties:
+                      telephone:
+                        type: string
+                        example: "0102030405"
+                        description: Numéro de téléphone nettoyé (chiffres uniquement)
+                      maskedPhone:
+                        type: string
+                        example: "01****05"
+                        description: Numéro masqué pour confirmation visuelle
+                      expirationMinutes:
+                        type: integer
+                        example: 5
+                        description: Durée de validité du code en minutes
+                      format:
+                        type: string
+                        example: "Code à 4 chiffres"
+                        description: Format du code OTP envoyé
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+                    description: Horodatage de la réponse
+              examples:
+                successResponse:
+                  summary: Envoi réussi
+                  value:
+                    success: true
+                    message: "Code de vérification envoyé par SMS"
+                    data:
+                      telephone: "0102030405"
+                      maskedPhone: "01****05"
+                      expirationMinutes: 5
+                      format: "Code à 4 chiffres"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Erreur de validation ou contraintes métier
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["BAD_REQUEST"]
+                  message:
+                    type: string
+                    description: Description de l'erreur
+                  data:
+                    type: object
+                    nullable: true
+                    description: Détails spécifiques de l'erreur
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                champManquant:
+                  summary: "BodyFilter : Champ obligatoire manquant"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Champs obligatoires manquants"
+                    data:
+                      missingFields: ["telephone"]
+                      requiredFields: ["telephone"]
+                      message: "Les champs suivants sont obligatoires: telephone"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                champNonAutorise:
+                  summary: "BodyFilter : Champ non autorisé en mode strict"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Champs non autorisés"
+                    data:
+                      unauthorizedFields: ["email", "nom"]
+                      allowedFields: ["telephone"]
+                      message: "Les champs suivants ne sont pas autorisés: email, nom"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                typeInvalide:
+                  summary: "BodyFilter : Type de données incorrect"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Erreurs de validation"
+                    data:
+                      validationErrors: 
+                        - "telephone doit être un numéro de téléphone valide (8-10 chiffres)"
+                      message: "Certains champs ne respectent pas les critères de validation"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                telephoneTropCourt:
+                  summary: "Validation métier : Numéro trop court"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Numéro de téléphone invalide pour la Côte d'Ivoire"
+                    data:
+                      format: "Le numéro doit contenir entre 8 et 10 chiffres"
+                      exemples: ["01234567", "0123456789"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                telephoneTropLong:
+                  summary: "Validation métier : Numéro trop long"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Numéro de téléphone invalide pour la Côte d'Ivoire"
+                    data:
+                      format: "Le numéro doit contenir entre 8 et 10 chiffres"
+                      exemples: ["01234567", "0123456789"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                antiSpam:
+                  summary: "Protection anti-spam : Demande trop récente"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Veuillez patienter avant de demander un nouveau code"
+                    data:
+                      message: "Un code OTP a déjà été envoyé récemment"
+                      tempsAttenteSecondes: 45
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                jsonInvalide:
+                  summary: "BodyFilter : JSON malformé"
+                  value:
+                    success: false
+                    error: "INVALID_JSON"
+                    message: "Format JSON invalide"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                bodyVide:
+                  summary: "BodyFilter : Corps de requête vide"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Champs obligatoires manquants"
+                    data:
+                      missingFields: ["telephone"]
+                      requiredFields: ["telephone"]
+                      message: "Les champs suivants sont obligatoires: telephone"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                telephoneAvecLettres:
+                  summary: "BodyFilter : Numéro contenant des lettres"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Erreurs de validation"
+                    data:
+                      validationErrors: 
+                        - "telephone doit être un numéro de téléphone valide (8-10 chiffres)"
+                      message: "Certains champs ne respectent pas les critères de validation"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          description: Erreur serveur interne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["INTERNAL_SERVER_ERROR"]
+                  message:
+                    type: string
+                    description: Description de l'erreur serveur
+                  data:
+                    type: object
+                    nullable: true
+                    properties:
+                      code:
+                        type: string
+                        description: Code d'erreur spécifique
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                erreurBaseDonnees:
+                  summary: "Erreur base de données"
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur interne lors de la génération du code"
+                    data: null
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                erreurSMS:
+                  summary: "Erreur service SMS LeTexto"
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur lors de l'envoi du SMS"
+                    data:
+                      code: "SMS_SEND_FAILED"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                erreurConfiguration:
+                  summary: "Configuration SMS manquante"
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur lors de l'envoi du SMS"
+                    data:
+                      code: "SMS_SEND_FAILED"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                erreurServeur:
+                  summary: "Erreur serveur générique"
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur interne lors de la génération du code"
+                    data: null
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+      security: []  # Endpoint public, pas d'authentification requise

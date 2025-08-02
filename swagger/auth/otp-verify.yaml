@@ -1,0 +1,476 @@
+openapi: 3.0.0
+info:
+  title: OTP Verify API
+  description: Vérification des codes OTP avec logique d'authentification selon le rôle
+  version: 1.0.0
+
+paths:
+  /v1/auth/otp/verify:
+    post:
+      tags:
+        - Authentification
+      summary: Vérifier un code OTP (connexion automatique pour patients)
+      description: |
+        Vérifie la validité du code OTP fourni avec comportement différent selon le type d'utilisateur :
+        
+        **Logique selon le rôle :**
+        - **Patient existant** : Connexion automatique avec tokens JWT
+        - **Médecin/Admin existant** : Vérification uniquement (utiliser /login pour se connecter)
+        - **Utilisateur inexistant** : Vérification uniquement (peut créer un compte patient)
+        
+        **Cas d'usage :**
+        - Connexion rapide pour patients (authentification OTP)
+        - Validation de numéro avant inscription
+        - Vérification d'identité pour médecins/admins
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - telephone
+                - otp
+              properties:
+                telephone:
+                  type: string
+                  pattern: '^[0-9]{8,10}$'
+                  description: |
+                    Numéro de téléphone (même que lors de l'envoi OTP)
+                  example: "0102030405"
+                otp:
+                  type: string
+                  pattern: '^[0-9]{4}$'
+                  minLength: 4
+                  maxLength: 4
+                  description: |
+                    Code de vérification à 4 chiffres reçu par SMS
+                  example: "1234"
+            examples:
+              patient_existant:
+                summary: Vérification pour patient existant (connexion)
+                value:
+                  telephone: "0102030405"
+                  otp: "1234"
+              medecin_existant:
+                summary: Vérification pour médecin existant (validation seulement)
+                value:
+                  telephone: "0107080910"
+                  otp: "5678"
+              nouveau_numero:
+                summary: Vérification pour nouveau numéro (inscription possible)
+                value:
+                  telephone: "0198765432"
+                  otp: "9012"
+
+      responses:
+        '200':
+          description: Code OTP vérifié avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      authType:
+                        type: string
+                        enum: [PATIENT_LOGIN, VERIFICATION_ONLY]
+                        description: Type d'authentification effectuée
+                      telephone:
+                        type: string
+                        description: Numéro de téléphone vérifié
+                        example: "0102030405"
+                      isValidated:
+                        type: boolean
+                        description: Confirmation que le numéro est vérifié
+                        example: true
+                      userExists:
+                        type: boolean
+                        description: Indique si un compte existe pour ce numéro
+                        example: true
+                      userInfo:
+                        type: object
+                        nullable: true
+                        description: Informations utilisateur si existant
+                        properties:
+                          id:
+                            type: string
+                            example: "uuid-user-123"
+                          telephone:
+                            type: string
+                            example: "0102030405"
+                          nom:
+                            type: string
+                            example: "Kouassi"
+                          prenom:
+                            type: string
+                            example: "Jean"
+                          role:
+                            type: string
+                            enum: [PATIENT, MEDECIN, ADMIN]
+                            example: "PATIENT"
+                          statut:
+                            type: string
+                            enum: [ACTIF, SUSPENDU, DESACTIVE]
+                            example: "ACTIF"
+                          patient:
+                            type: object
+                            nullable: true
+                            description: Données patient (si rôle PATIENT)
+                            properties:
+                              id:
+                                type: string
+                              dateNaissance:
+                                type: string
+                                format: date
+                                nullable: true
+                              sexe:
+                                type: string
+                                nullable: true
+                              ville:
+                                type: string
+                      tokens:
+                        type: object
+                        nullable: true
+                        description: Tokens JWT (uniquement pour patients)
+                        properties:
+                          accessToken:
+                            type: string
+                            description: Token JWT d'accès
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          refreshToken:
+                            type: string
+                            description: Token de rafraîchissement
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          expiresIn:
+                            type: string
+                            description: Durée de validité du token d'accès
+                            example: "7d"
+                      sessionInfo:
+                        type: object
+                        nullable: true
+                        description: Informations de session (uniquement pour patients)
+                        properties:
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                          timestamp:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          loginMethod:
+                            type: string
+                            example: "OTP"
+                      nextSteps:
+                        type: array
+                        items:
+                          type: string
+                        description: Actions suggérées après vérification
+                      validationInfo:
+                        type: object
+                        nullable: true
+                        description: Informations de validation (pour vérification uniquement)
+                        properties:
+                          validatedAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                          validUntil:
+                            type: string
+                            format: date-time
+                            description: Validité de la vérification (10 minutes)
+                            example: "2024-01-15T14:40:22.123Z"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                patient_connexion:
+                  summary: Connexion automatique patient avec tokens
+                  value:
+                    success: true
+                    message: "Connexion réussie"
+                    data:
+                      authType: "PATIENT_LOGIN"
+                      telephone: "0102030405"
+                      isValidated: true
+                      userExists: true
+                      userInfo:
+                        id: "uuid-patient-123"
+                        telephone: "0102030405"
+                        nom: "Kouassi"
+                        prenom: "Jean"
+                        role: "PATIENT"
+                        statut: "ACTIF"
+                        patient:
+                          id: "patient-123"
+                          dateNaissance: "1985-03-15"
+                          sexe: "M"
+                          ville: "Abidjan"
+                      tokens:
+                        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        expiresIn: "7d"
+                      sessionInfo:
+                        ip: "192.168.1.100"
+                        timestamp: "2024-01-15T14:30:22.123Z"
+                        loginMethod: "OTP"
+                      nextSteps: []
+                      validationInfo: null
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                medecin_verification:
+                  summary: Vérification médecin (pas de tokens - utiliser /login)
+                  value:
+                    success: true
+                    message: "Numéro vérifié avec succès"
+                    data:
+                      authType: "VERIFICATION_ONLY"
+                      telephone: "0107080910"
+                      isValidated: true
+                      userExists: true
+                      userInfo:
+                        id: "uuid-medecin-456"
+                        telephone: "0107080910"
+                        nom: "Diabaté"
+                        prenom: "Dr Fatou"
+                        role: "MEDECIN"
+                        statut: "ACTIF"
+                      tokens: null
+                      sessionInfo: null
+                      nextSteps:
+                        - "Utilisez votre email et mot de passe pour vous connecter"
+                        - "Endpoint: POST /v1/auth/login"
+                      validationInfo:
+                        validatedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                        validUntil: "2024-01-15T14:40:22.123Z"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                admin_verification:
+                  summary: Vérification admin (pas de tokens - utiliser /login)
+                  value:
+                    success: true
+                    message: "Numéro vérifié avec succès"
+                    data:
+                      authType: "VERIFICATION_ONLY"
+                      telephone: "0109876543"
+                      isValidated: true
+                      userExists: true
+                      userInfo:
+                        id: "uuid-admin-789"
+                        telephone: "0109876543"
+                        nom: "Admin"
+                        prenom: "Système"
+                        role: "ADMIN"
+                        statut: "ACTIF"
+                      tokens: null
+                      sessionInfo: null
+                      nextSteps:
+                        - "Utilisez vos identifiants administrateur pour vous connecter"
+                        - "Endpoint: POST /v1/auth/login"
+                      validationInfo:
+                        validatedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                        validUntil: "2024-01-15T14:40:22.123Z"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                nouveau_utilisateur:
+                  summary: Vérification nouveau numéro (peut s'inscrire)
+                  value:
+                    success: true
+                    message: "Numéro vérifié avec succès"
+                    data:
+                      authType: "VERIFICATION_ONLY"
+                      telephone: "0198765432"
+                      isValidated: true
+                      userExists: false
+                      userInfo: null
+                      tokens: null
+                      sessionInfo: null
+                      nextSteps:
+                        - "Votre numéro est vérifié"
+                        - "Vous pouvez maintenant créer votre compte patient"
+                        - "Endpoint: POST /v1/auth/register/patient"
+                      validationInfo:
+                        validatedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                        validUntil: "2024-01-15T14:40:22.123Z"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                patient_suspendu:
+                  summary: Patient suspendu (vérification réussie mais pas de connexion)
+                  value:
+                    success: true
+                    message: "Numéro vérifié avec succès"
+                    data:
+                      authType: "VERIFICATION_ONLY"
+                      telephone: "0102030405"
+                      isValidated: true
+                      userExists: true
+                      userInfo:
+                        id: "uuid-patient-456"
+                        telephone: "0102030405"
+                        nom: "Patient"
+                        prenom: "Suspendu"
+                        role: "PATIENT"
+                        statut: "SUSPENDU"
+                      tokens: null
+                      sessionInfo: null
+                      nextSteps:
+                        - "Votre compte patient est suspendu, contactez l'administration"
+                      validationInfo:
+                        validatedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                        validUntil: "2024-01-15T14:40:22.123Z"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Erreurs de validation ou de logique métier
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["BAD_REQUEST"]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                champs_manquants:
+                  summary: "Champs obligatoires manquants"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Champs obligatoires manquants"
+                    data:
+                      missingFields: ["otp"]
+                      requiredFields: ["telephone", "otp"]
+                      message: "Les champs suivants sont obligatoires: otp"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                otp_invalide:
+                  summary: "Code OTP incorrect"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Code de vérification invalide"
+                    data:
+                      code: "OTP_INVALID"
+                      message: "Le code de vérification est incorrect. Veuillez vérifier et réessayer."
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                otp_expire:
+                  summary: "Code OTP expiré"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Code de vérification expiré"
+                    data:
+                      code: "OTP_EXPIRED"
+                      message: "Le code de vérification a expiré. Veuillez demander un nouveau code."
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                trop_tentatives:
+                  summary: "Trop de tentatives incorrectes"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Trop de tentatives"
+                    data:
+                      code: "OTP_MAX_ATTEMPTS"
+                      message: "Trop de tentatives incorrectes. Veuillez demander un nouveau code."
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                format_invalide:
+                  summary: "Format de données invalide"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Erreurs de validation"
+                    data:
+                      validationErrors: 
+                        - "otp ne respecte pas le format requis"
+                        - "telephone doit être un numéro de téléphone valide (8-10 chiffres)"
+                      message: "Certains champs ne respectent pas les critères de validation"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '403':
+          description: Compte patient suspendu (cas spécial)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["FORBIDDEN"]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                patient_suspendu_connexion:
+                  summary: "Tentative de connexion patient suspendu"
+                  value:
+                    success: false
+                    error: "FORBIDDEN"
+                    message: "Compte patient suspendu ou désactivé"
+                    data:
+                      statut: "SUSPENDU"
+                      message: "Votre compte patient est actuellement suspendu. Contactez le support."
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          description: Erreur serveur interne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["INTERNAL_SERVER_ERROR"]
+                  message:
+                    type: string
+                    example: "Erreur interne lors de la vérification"
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                erreur_serveur:
+                  summary: "Erreur serveur générique"
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur interne lors de la vérification"
+                    data: null
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+      security: []  # Endpoint public, pas d'authentification requise

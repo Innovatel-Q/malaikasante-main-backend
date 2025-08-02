@@ -1,0 +1,328 @@
+openapi: 3.0.0
+info:
+  title: Login API
+  description: Connexion médecins/admins avec email et mot de passe
+  version: 1.0.0
+
+paths:
+  /v1/auth/login:
+    post:
+      tags:
+        - Connexion
+      summary: Se connecter avec email et mot de passe (médecins/admins uniquement)
+      description: |
+        Authentifie un médecin ou administrateur avec email et mot de passe.
+        
+        **IMPORTANT :**
+        - **Patients INTERDITS** : Les patients doivent utiliser l'authentification OTP
+        - **Médecins** : Doivent être validés pour se connecter
+        - **Admins** : Connexion directe si compte actif
+        
+        **Réponse simplifiée :**
+        Retourne uniquement les tokens JWT. Utilisez `/auth/me` pour récupérer les informations utilisateur.
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Adresse email du compte médecin/admin
+                  example: "dr.fatou.diabate@email.com"
+                password:
+                  type: string
+                  minLength: 1
+                  description: Mot de passe du compte
+                  example: "motdepasse123"
+            examples:
+              medecin:
+                summary: Connexion médecin
+                value:
+                  email: "dr.fatou.diabate@email.com"
+                  password: "MotDePasseSecurise123!"
+              admin:
+                summary: Connexion administrateur
+                value:
+                  email: "admin@medecins-patients.ci"
+                  password: "AdminSecure456!"
+
+      responses:
+        '200':
+          description: Connexion réussie - Tokens JWT retournés
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Connexion réussie"
+                  data:
+                    type: object
+                    properties:
+                      tokens:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+                            description: Token JWT d'accès
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          refreshToken:
+                            type: string
+                            nullable: true
+                            description: Token de rafraîchissement (null pour admins)
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          expiresIn:
+                            type: string
+                            description: Durée de validité du token d'accès
+                            example: "1d"
+                      sessionInfo:
+                        type: object
+                        properties:
+                          loginMethod:
+                            type: string
+                            example: "EMAIL_PASSWORD"
+                          timestamp:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                medecin_connexion:
+                  summary: Connexion médecin réussie
+                  value:
+                    success: true
+                    message: "Connexion réussie"
+                    data:
+                      tokens:
+                        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        expiresIn: "1d"
+                      sessionInfo:
+                        loginMethod: "EMAIL_PASSWORD"
+                        timestamp: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                admin_connexion:
+                  summary: Connexion admin réussie
+                  value:
+                    success: true
+                    message: "Connexion réussie"
+                    data:
+                      tokens:
+                        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        refreshToken: null
+                        expiresIn: "1d"
+                      sessionInfo:
+                        loginMethod: "EMAIL_PASSWORD"
+                        timestamp: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Erreurs de validation ou méthode incorrecte
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["BAD_REQUEST"]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                identifiants_incorrects:
+                  summary: "Email ou mot de passe incorrect"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Identifiants incorrects"
+                    data:
+                      code: "INVALID_CREDENTIALS"
+                      message: "Email ou mot de passe incorrect."
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                patient_interdit:
+                  summary: "Patient tentant de se connecter (INTERDIT)"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Méthode de connexion incorrecte"
+                    data:
+                      code: "WRONG_AUTH_METHOD"
+                      message: "Les patients se connectent uniquement par SMS avec un code de vérification."
+                      correctMethod: "OTP_SMS"
+                      instructions:
+                        - "Utilisez votre numéro de téléphone pour recevoir un code SMS"
+                        - "Endpoint: POST /v1/auth/otp/send puis POST /v1/auth/otp/verify"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                champs_manquants:
+                  summary: "Champs obligatoires manquants"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Champs obligatoires manquants"
+                    data:
+                      missingFields: ["password"]
+                      requiredFields: ["email", "password"]
+                      message: "Les champs suivants sont obligatoires: password"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                format_invalide:
+                  summary: "Format email invalide"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Erreurs de validation"
+                    data:
+                      validationErrors:
+                        - "email doit être un email valide"
+                      message: "Certains champs ne respectent pas les critères de validation"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '403':
+          description: Compte inactif ou médecin non validé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["FORBIDDEN"]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                medecin_en_attente:
+                  summary: "Médecin en attente de validation"
+                  value:
+                    success: false
+                    error: "FORBIDDEN"
+                    message: "Votre compte médecin est en cours de validation par notre équipe."
+                    data:
+                      statutValidation: "EN_ATTENTE"
+                      nextSteps:
+                        - "Validation en cours par l'administration"
+                        - "Délai estimé: 24-48 heures"
+                        - "Vous recevrez un email de confirmation"
+                        - "Contact: validation@medecins-patients.ci"
+                      contact:
+                        email: "validation@medecins-patients.ci"
+                        telephone: "+225 XX XX XX XX"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                medecin_rejete:
+                  summary: "Médecin rejeté lors de la validation"
+                  value:
+                    success: false
+                    error: "FORBIDDEN"
+                    message: "Votre demande de validation a été rejetée."
+                    data:
+                      statutValidation: "REJETE"
+                      motifRejet: "Documents incomplets"
+                      nextSteps:
+                        - "Contactez l'administration pour plus d'informations"
+                        - "Motif du rejet: Documents incomplets"
+                        - "Email: validation@medecins-patients.ci"
+                      contact:
+                        email: "validation@medecins-patients.ci"
+                        telephone: "+225 XX XX XX XX"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                compte_suspendu:
+                  summary: "Compte utilisateur suspendu"
+                  value:
+                    success: false
+                    error: "FORBIDDEN"
+                    message: "Votre compte est temporairement suspendu. Contactez l'administration."
+                    data:
+                      statut: "SUSPENDU"
+                      contact:
+                        email: "support@medecins-patients.ci"
+                        telephone: "+225 XX XX XX XX"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                compte_desactive:
+                  summary: "Compte utilisateur désactivé"
+                  value:
+                    success: false
+                    error: "FORBIDDEN"
+                    message: "Votre compte a été désactivé. Contactez l'administration."
+                    data:
+                      statut: "DESACTIVE"
+                      contact:
+                        email: "support@medecins-patients.ci"
+                        telephone: "+225 XX XX XX XX"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          description: Erreur serveur interne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["INTERNAL_SERVER_ERROR"]
+                  message:
+                    type: string
+                    example: "Erreur interne lors de la connexion"
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                erreur_serveur:
+                  summary: "Erreur serveur générique"
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur interne lors de la connexion"
+                    data: null
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                erreur_configuration:
+                  summary: "Erreur configuration compte médecin"
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur de configuration du compte médecin"
+                    data: null
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+      security: []  # Endpoint public, pas d'authentification requise

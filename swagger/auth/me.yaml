@@ -1,0 +1,423 @@
+openapi: 3.0.0
+info:
+  title: User Info API
+  description: Récupération des informations de l'utilisateur connecté
+  version: 1.0.0
+
+paths:
+  /v1/auth/me:
+    get:
+      tags:
+        - Authentification
+      summary: Récupérer les informations de l'utilisateur connecté
+      description: |
+        Retourne toutes les informations détaillées de l'utilisateur authentifié.
+      security:
+        - bearerAuth: []
+
+      responses:
+        '200':
+          description: Informations utilisateur récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Informations utilisateur récupérées"
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "uuid-user-123"
+                      email:
+                        type: string
+                        example: "user@example.com"
+                      telephone:
+                        type: string
+                        example: "0102030405"
+                      nom:
+                        type: string
+                        example: "Kouassi"
+                      prenom:
+                        type: string
+                        example: "Jean"
+                      role:
+                        type: string
+                        enum: [PATIENT, MEDECIN, ADMIN]
+                        example: "PATIENT"
+                      statut:
+                        type: string
+                        enum: [ACTIF, SUSPENDU, DESACTIVE]
+                        example: "ACTIF"
+                      canalCommunicationPrefere:
+                        type: string
+                        enum: [SMS, EMAIL]
+                        example: "SMS"
+                      createdAt:
+                        type: string
+                        format: date-time
+                        example: "2024-01-15T14:30:22.123Z"
+                      updatedAt:
+                        type: string
+                        format: date-time
+                        example: "2024-01-15T14:30:22.123Z"
+                      authMethod:
+                        type: string
+                        enum: [OTP_ONLY, EMAIL_PASSWORD]
+                        example: "OTP_ONLY"
+                      patient:
+                        type: object
+                        nullable: true
+                        description: Données patient (si rôle PATIENT)
+                        properties:
+                          id:
+                            type: string
+                          dateNaissance:
+                            type: string
+                            format: date
+                            nullable: true
+                          sexe:
+                            type: string
+                            enum: [M, F, AUTRE]
+                            nullable: true
+                          adresse:
+                            type: string
+                            nullable: true
+                          ville:
+                            type: string
+                          codePostal:
+                            type: string
+                            nullable: true
+                          groupeSanguin:
+                            type: string
+                            nullable: true
+                          poids:
+                            type: number
+                            nullable: true
+                          taille:
+                            type: integer
+                            nullable: true
+                          allergies:
+                            type: string
+                            nullable: true
+                            description: "Données chiffrées"
+                          antecedentsMedicaux:
+                            type: string
+                            nullable: true
+                            description: "Données chiffrées"
+                          traitementsEnCours:
+                            type: string
+                            nullable: true
+                            description: "Données chiffrées"
+                          abonneContenuPro:
+                            type: boolean
+                          age:
+                            type: integer
+                            nullable: true
+                            description: "Calculé automatiquement"
+                          imc:
+                            type: number
+                            nullable: true
+                            description: "Calculé automatiquement si poids/taille disponibles"
+                      medecin:
+                        type: object
+                        nullable: true
+                        description: Données médecin (si rôle MEDECIN)
+                        properties:
+                          id:
+                            type: string
+                          numeroOrdre:
+                            type: string
+                          specialites:
+                            type: array
+                            items:
+                              type: string
+                          statutValidation:
+                            type: string
+                            enum: [EN_ATTENTE, VALIDE, REJETE]
+                          dateValidation:
+                            type: string
+                            format: date
+                            nullable: true
+                          motifRejet:
+                            type: string
+                            nullable: true
+                          bio:
+                            type: string
+                            nullable: true
+                          experienceAnnees:
+                            type: integer
+                            nullable: true
+                          languesParlees:
+                            type: array
+                            items:
+                              type: string
+                            nullable: true
+                          tarifConsultationBase:
+                            type: number
+                            nullable: true
+                          accepteDomicile:
+                            type: boolean
+                          accepteTeleconsultation:
+                            type: boolean
+                          accepteclinique:
+                            type: boolean
+                          noteMoyenne:
+                            type: number
+                          nombreEvaluations:
+                            type: integer
+                          clinique:
+                            type: object
+                            nullable: true
+                            properties:
+                              id:
+                                type: string
+                              nom:
+                                type: string
+                              adresse:
+                                type: string
+                              ville:
+                                type: string
+                              telephone:
+                                type: string
+                                nullable: true
+                              email:
+                                type: string
+                                nullable: true
+                              horaires:
+                                type: object
+                                nullable: true
+                              services:
+                                type: object
+                                nullable: true
+                      validationInfo:
+                        type: object
+                        nullable: true
+                        description: Informations de validation (médecins uniquement)
+                        properties:
+                          isValidated:
+                            type: boolean
+                          canPractice:
+                            type: boolean
+                          validationStatus:
+                            type: string
+                            enum: [EN_ATTENTE, VALIDE, REJETE]
+                      profileInfo:
+                        type: object
+                        properties:
+                          completion:
+                            type: integer
+                            description: "Pourcentage de completion du profil"
+                            example: 85
+                          isComplete:
+                            type: boolean
+                            description: "True si completion >= 80%"
+                            example: true
+                          lastUpdate:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                patient_complet:
+                  summary: Profil patient complet
+                  value:
+                    success: true
+                    message: "Informations utilisateur récupérées"
+                    data:
+                      id: "uuid-patient-123"
+                      email: "jean.kouassi@email.com"
+                      telephone: "0102030405"
+                      nom: "Kouassi"
+                      prenom: "Jean"
+                      role: "PATIENT"
+                      statut: "ACTIF"
+                      canalCommunicationPrefere: "SMS"
+                      createdAt: "2024-01-15T14:30:22.123Z"
+                      updatedAt: "2024-01-20T10:15:30.456Z"
+                      authMethod: "OTP_ONLY"
+                      patient:
+                        id: "patient-123"
+                        dateNaissance: "1985-03-15"
+                        sexe: "M"
+                        adresse: "Rue des Jardins, Cocody"
+                        ville: "Abidjan"
+                        codePostal: "01BP123"
+                        groupeSanguin: "O+"
+                        poids: 75.5
+                        taille: 180
+                        allergies: "[DONNEES_CHIFFREES]"
+                        antecedentsMedicaux: "[DONNEES_CHIFFREES]"
+                        traitementsEnCours: null
+                        abonneContenuPro: false
+                        age: 39
+                        imc: 23.3
+                      profileInfo:
+                        completion: 90
+                        isComplete: true
+                        lastUpdate: "2024-01-20T10:15:30.456Z"
+                    timestamp: "2024-01-25T14:30:22.123Z"
+                medecin_valide:
+                  summary: Profil médecin validé
+                  value:
+                    success: true
+                    message: "Informations utilisateur récupérées"
+                    data:
+                      id: "uuid-medecin-456"
+                      email: "dr.fatou.diabate@email.com"
+                      telephone: "0107080910"
+                      nom: "Diabaté"
+                      prenom: "Dr Fatou"
+                      role: "MEDECIN"
+                      statut: "ACTIF"
+                      canalCommunicationPrefere: "EMAIL"
+                      createdAt: "2024-01-10T09:20:15.789Z"
+                      updatedAt: "2024-01-22T16:45:12.345Z"
+                      authMethod: "EMAIL_PASSWORD"
+                      medecin:
+                        id: "medecin-456"
+                        numeroOrdre: "CI123456"
+                        specialites: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+                        statutValidation: "VALIDE"
+                        dateValidation: "2024-01-12"
+                        motifRejet: null
+                        bio: "Cardiologue avec 15 ans d'expérience en chirurgie cardiaque."
+                        experienceAnnees: 15
+                        languesParlees: ["FRANCAIS", "ANGLAIS"]
+                        tarifConsultationBase: 25000
+                        accepteDomicile: true
+                        accepteTeleconsultation: true
+                        accepteclinique: true
+                        noteMoyenne: 4.7
+                        nombreEvaluations: 23
+                        clinique:
+                          id: "clinique-789"
+                          nom: "Clinique des Deux Plateaux"
+                          adresse: "Rue des Jardins, Deux Plateaux"
+                          ville: "Abidjan"
+                          telephone: "0123456789"
+                          email: "contact@clinique2plateaux.ci"
+                          horaires: {"lundi": "08:00-17:00", "mardi": "08:00-17:00"}
+                          services: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+                      validationInfo:
+                        isValidated: true
+                        canPractice: true
+                        validationStatus: "VALIDE"
+                      profileInfo:
+                        completion: 95
+                        isComplete: true
+                        lastUpdate: "2024-01-22T16:45:12.345Z"
+                    timestamp: "2024-01-25T14:30:22.123Z"
+                admin_profil:
+                  summary: Profil administrateur
+                  value:
+                    success: true
+                    message: "Informations utilisateur récupérées"
+                    data:
+                      id: "uuid-admin-789"
+                      email: "admin@medecins-patients.ci"
+                      telephone: "0109876543"
+                      nom: "Admin"
+                      prenom: "Système"
+                      role: "ADMIN"
+                      statut: "ACTIF"
+                      canalCommunicationPrefere: "EMAIL"
+                      createdAt: "2024-01-01T00:00:00.000Z"
+                      updatedAt: "2024-01-25T14:30:22.123Z"
+                      authMethod: "EMAIL_PASSWORD"
+                      profileInfo:
+                        completion: 100
+                        isComplete: true
+                        lastUpdate: "2024-01-25T14:30:22.123Z"
+                    timestamp: "2024-01-25T14:30:22.123Z"
+
+        '401':
+          description: Token d'authentification manquant ou invalide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["UNAUTHORIZED"]
+                  message:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                token_manquant:
+                  summary: "Token d'authentification manquant"
+                  value:
+                    success: false
+                    error: "UNAUTHORIZED"
+                    message: "Token d'authentification requis"
+                    timestamp: "2024-01-25T14:30:22.123Z"
+                token_invalide:
+                  summary: "Token invalide ou expiré"
+                  value:
+                    success: false
+                    error: "UNAUTHORIZED"
+                    message: "Token expiré, veuillez vous reconnecter"
+                    timestamp: "2024-01-25T14:30:22.123Z"
+
+        '404':
+          description: Utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["NOT_FOUND"]
+                  message:
+                    type: string
+                    example: "Utilisateur non trouvé"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+        '500':
+          description: Erreur serveur interne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["INTERNAL_SERVER_ERROR"]
+                  message:
+                    type: string
+                    example: "Erreur lors de la récupération des informations"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+

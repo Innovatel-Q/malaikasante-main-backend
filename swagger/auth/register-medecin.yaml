@@ -1,0 +1,419 @@
+openapi: 3.0.0
+info:
+  title: Medecin Registration API
+  description: Inscription de nouveaux médecins avec validation administrative
+  version: 1.0.0
+
+paths:
+  /v1/auth/register/medecin:
+    post:
+      tags:
+        - Authentification
+      summary: Inscrire un nouveau médecin
+      description: |
+        Crée un nouveau compte médecin avec mot de passe obligatoire.
+        Le compte est créé en statut "EN_ATTENTE" et nécessite une validation administrative.
+        
+        **Prérequis :**
+        - Numéro de téléphone vérifié par OTP (dans les 10 dernières minutes)
+        - Email, téléphone et numéro d'ordre uniques
+        - Spécialités médicales valides
+        
+        **Processus après inscription :**
+        1. Compte créé en statut "EN_ATTENTE"
+        2. Notification envoyée aux administrateurs
+        3. Validation manuelle sous 24-48h
+        4. Email de confirmation envoyé au médecin
+        5. Connexion possible avec email + mot de passe
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nom
+                - prenom
+                - telephone
+                - email
+                - password
+                - numeroOrdre
+                - specialites
+              properties:
+                nom:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Nom de famille du médecin
+                  example: "Diabaté"
+                prenom:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Prénom du médecin (avec titre si souhaité)
+                  example: "Dr Fatou"
+                telephone:
+                  type: string
+                  pattern: '^[0-9]{8,10}$'
+                  description: |
+                    Numéro de téléphone (doit être vérifié par OTP)
+                  example: "0107080910"
+                email:
+                  type: string
+                  format: email
+                  description: Adresse email professionnelle unique
+                  example: "dr.fatou.diabate@email.com"
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 100
+                  description: |
+                    Mot de passe sécurisé (minimum 8 caractères)
+                  example: "MotDePasseSecurise123!"
+                numeroOrdre:
+                  type: string
+                  minLength: 5
+                  maxLength: 50
+                  pattern: '^[A-Z0-9]+$'
+                  description: |
+                    Numéro d'inscription à l'Ordre des Médecins (majuscules et chiffres uniquement)
+                  example: "CI123456"
+                specialites:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - MEDECINE_GENERALE
+                      - CARDIOLOGIE
+                      - DERMATOLOGIE
+                      - PEDIATRIE
+                      - GYNECOLOGIE
+                      - NEUROLOGIE
+                      - PSYCHIATRIE
+                      - CHIRURGIE_GENERALE
+                      - OPHTALMOLOGIE
+                      - ORL
+                      - RADIOLOGIE
+                      - ANESTHESIE
+                      - URGENCES
+                      - MEDECINE_INTERNE
+                      - ENDOCRINOLOGIE
+                      - RHUMATOLOGIE
+                      - GASTROENTEROLOGIE
+                      - PNEUMOLOGIE
+                      - NEPHROLOGIE
+                      - ONCOLOGIE
+                  minItems: 1
+                  description: |
+                    Liste des spécialités médicales (au moins une requise)
+                  example: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+                bio:
+                  type: string
+                  maxLength: 1000
+                  description: Biographie professionnelle (optionnelle)
+                  example: "Cardiologue avec 15 ans d'expérience, spécialisé en chirurgie cardiaque."
+                experienceAnnees:
+                  type: integer
+                  minimum: 0
+                  maximum: 60
+                  description: Nombre d'années d'expérience (optionnel)
+                  example: 15
+            examples:
+              medecin_generaliste:
+                summary: Médecin généraliste
+                value:
+                  nom: "Kouassi"
+                  prenom: "Dr Jean"
+                  telephone: "0107080910"
+                  email: "dr.jean.kouassi@email.com"
+                  password: "MotDePasse123!"
+                  numeroOrdre: "CI789012"
+                  specialites: ["MEDECINE_GENERALE"]
+                  bio: "Médecin généraliste avec 10 ans d'expérience en médecine de famille."
+                  experienceAnnees: 10
+              cardiologue:
+                summary: Cardiologue expérimenté
+                value:
+                  nom: "Diabaté"
+                  prenom: "Dr Fatou"
+                  telephone: "0102030405"
+                  email: "dr.fatou.diabate@email.com"
+                  password: "CardioSecure456!"
+                  numeroOrdre: "CI123456"
+                  specialites: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+                  bio: "Cardiologue interventionnelle avec expertise en chirurgie cardiaque minimalement invasive."
+                  experienceAnnees: 15
+              pediatre_inscription_minimale:
+                summary: Inscription avec champs obligatoires uniquement
+                value:
+                  nom: "Traoré"
+                  prenom: "Dr Aminata"
+                  telephone: "0198765432"
+                  email: "dr.aminata.traore@email.com"
+                  password: "PediatreSecure789!"
+                  numeroOrdre: "CI345678"
+                  specialites: ["PEDIATRIE"]
+
+      responses:
+        '201':
+          description: Compte médecin créé en attente de validation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Compte médecin créé en attente de validation"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: "uuid-medecin-123"
+                          telephone:
+                            type: string
+                            example: "0107080910"
+                          email:
+                            type: string
+                            example: "dr.fatou.diabate@email.com"
+                          nom:
+                            type: string
+                            example: "Diabaté"
+                          prenom:
+                            type: string
+                            example: "Dr Fatou"
+                          role:
+                            type: string
+                            example: "MEDECIN"
+                          statut:
+                            type: string
+                            example: "ACTIF"
+                          hasPassword:
+                            type: boolean
+                            example: true
+                          authMethod:
+                            type: string
+                            example: "EMAIL_PASSWORD"
+                          medecin:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                example: "medecin-123"
+                              numeroOrdre:
+                                type: string
+                                example: "CI123456"
+                              specialites:
+                                type: array
+                                items:
+                                  type: string
+                                example: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+                              statutValidation:
+                                type: string
+                                enum: [EN_ATTENTE, VALIDE, REJETE]
+                                example: "EN_ATTENTE"
+                              bio:
+                                type: string
+                                nullable: true
+                                example: "Cardiologue avec 15 ans d'expérience."
+                              experienceAnnees:
+                                type: integer
+                                nullable: true
+                                example: 15
+                              accepteDomicile:
+                                type: boolean
+                                example: false
+                              accepteTeleconsultation:
+                                type: boolean
+                                example: false
+                              accepteclinique:
+                                type: boolean
+                                example: true
+                      validationInfo:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: "EN_ATTENTE"
+                          message:
+                            type: string
+                            example: "Votre compte médecin a été créé avec succès et est en attente de validation par notre équipe."
+                          estimatedValidationTime:
+                            type: string
+                            example: "24-48 heures"
+                          documentsRequired:
+                            type: array
+                            items:
+                              type: string
+                            example:
+                              - "Copie du diplôme de médecine"
+                              - "Certificat d'inscription à l'Ordre des Médecins"
+                              - "Pièce d'identité valide"
+                          contactInfo:
+                            type: object
+                            properties:
+                              email:
+                                type: string
+                                example: "validation@medecins-patients.ci"
+                              telephone:
+                                type: string
+                                example: "+225 XX XX XX XX"
+                      accountInfo:
+                        type: object
+                        properties:
+                          createdAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                          isEmailVerified:
+                            type: boolean
+                            example: false
+                          isPhoneVerified:
+                            type: boolean
+                            example: true
+                          accountType:
+                            type: string
+                            example: "MEDECIN"
+                          needsValidation:
+                            type: boolean
+                            example: true
+                      nextSteps:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "Votre compte médecin est créé mais pas encore actif"
+                          - "Un administrateur va vérifier vos informations sous 24-48h"
+                          - "Vous recevrez un email de confirmation une fois validé"
+                          - "En attendant, préparez vos documents de validation"
+                          - "Vous pourrez vous connecter une fois votre compte validé avec: email + mot de passe"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Erreurs de validation ou contraintes métier
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["BAD_REQUEST"]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                champs_manquants:
+                  summary: "Champs obligatoires manquants"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Champs obligatoires manquants"
+                    data:
+                      missingFields: ["numeroOrdre", "specialites"]
+                      requiredFields: ["nom", "prenom", "telephone", "email", "password", "numeroOrdre", "specialites"]
+                      message: "Les champs suivants sont obligatoires: numeroOrdre, specialites"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                telephone_non_verifie:
+                  summary: "Numéro de téléphone non vérifié par OTP"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Numéro de téléphone non vérifié"
+                    data:
+                      code: "PHONE_NOT_VERIFIED"
+                      message: "Vous devez d'abord vérifier votre numéro de téléphone avec un code OTP."
+                      action: "Demandez un code OTP pour ce numéro"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                email_existe:
+                  summary: "Adresse email déjà utilisée"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Adresse email déjà utilisée"
+                    data:
+                      code: "EMAIL_ALREADY_EXISTS"
+                      message: "Cette adresse email est déjà associée à un compte patient."
+                      field: "email"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                numero_ordre_existe:
+                  summary: "Numéro d'ordre déjà utilisé"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Numéro d'ordre déjà utilisé"
+                    data:
+                      code: "ORDRE_NUMBER_EXISTS"
+                      message: "Ce numéro d'ordre est déjà enregistré dans le système."
+                      field: "numeroOrdre"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                specialites_invalides:
+                  summary: "Spécialités non reconnues"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Spécialités non reconnues"
+                    data:
+                      code: "INVALID_SPECIALITES"
+                      message: "Les spécialités suivantes ne sont pas reconnues: SPECIALITE_INEXISTANTE"
+                      field: "specialites"
+                      specialitesAutorisees: ["MEDECINE_GENERALE", "CARDIOLOGIE", "DERMATOLOGIE"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                experience_invalide:
+                  summary: "Années d'expérience invalides"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Années d'expérience invalides"
+                    data:
+                      code: "INVALID_EXPERIENCE"
+                      message: "L'expérience doit être comprise entre 0 et 60 ans."
+                      field: "experienceAnnees"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          description: Erreur serveur interne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["INTERNAL_SERVER_ERROR"]
+                  message:
+                    type: string
+                    example: "Erreur interne lors de la création du compte médecin"
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+
+      security: []

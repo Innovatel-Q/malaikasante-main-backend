@@ -1,0 +1,318 @@
+openapi: 3.0.0
+info:
+  title: Admin Doctors Validation API
+  description: Validation ou rejet des médecins en attente par les administrateurs
+  version: 1.0.0
+
+paths:
+  /v1/admin/doctors/{medecinId}/validate:
+    put:
+      tags:
+        - Administration
+      summary: Valider ou rejeter un médecin en attente
+      description: |
+        Permet aux administrateurs de valider ou rejeter un médecin en attente de validation.
+        
+        **Actions possibles :**
+        - ✅ **VALIDE** : Approuve le médecin qui peut alors se connecter
+        - ❌ **REJETE** : Refuse le médecin avec un motif obligatoire
+        
+        **Conséquences de la validation :**
+        - **Si VALIDE** : Le médecin peut se connecter avec email/password
+        - **Si REJETE** : Le médecin reste EN_ATTENTE et reçoit le motif
+        
+        **Notifications automatiques :**
+        - 📧 **Email automatique** envoyé au médecin selon l'action
+        - 📊 **Traçabilité** : Admin, date, IP enregistrés
+        - 📝 **Audit trail** : Historique complet des actions
+        
+        **Workflow :**
+        1. Admin examine les documents du médecin
+        2. Décide de valider ou rejeter via cette route
+        3. Système met à jour le statut en base
+        4. Email automatique envoyé au médecin
+        5. Médecin peut se connecter (si validé) ou corriger (si rejeté)
+        
+        **User Stories :** Administrateurs-US2, US3 (Gestion comptes médecins)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: medecinId
+          in: path
+          description: ID unique du médecin à valider/rejeter
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [VALIDE, REJETE]
+                  description: |
+                    Action à effectuer sur le médecin
+                    
+                    - **VALIDE** : Approuve le médecin
+                    - **REJETE** : Refuse le médecin
+                  example: "VALIDE"
+                motifRejet:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+                  description: |
+                    Motif du rejet (obligatoire si action = REJETE)
+                    
+                    **Exemples de motifs :**
+                    - Documents illisibles ou incomplets
+                    - Informations non conformes
+                    - Diplômes non reconnus
+                    - Certifications manquantes
+                  example: "Documents illisibles, veuillez fournir des copies plus claires du diplôme et du certificat d'inscription à l'ordre"
+            examples:
+              validation:
+                summary: Validation d'un médecin
+                value:
+                  action: "VALIDE"
+              rejet_documents:
+                summary: Rejet pour documents illisibles
+                value:
+                  action: "REJETE"
+                  motifRejet: "Documents illisibles, veuillez fournir des copies plus claires du diplôme et du certificat d'inscription à l'ordre"
+              rejet_formation:
+                summary: Rejet pour formation non reconnue
+                value:
+                  action: "REJETE"
+                  motifRejet: "Le diplôme fourni ne correspond pas aux standards requis. Veuillez contacter l'administration pour plus d'informations"
+
+      responses:
+        '200':
+          description: Action de validation effectuée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [VALIDE, REJETE]
+                        example: "VALIDE"
+                      message:
+                        type: string
+                        description: "Message détaillé de confirmation"
+                        example: "Dr Fatou Diabaté a été validé et peut maintenant se connecter à la plateforme."
+                      motifRejet:
+                        type: string
+                        nullable: true
+                        description: "Présent uniquement si action = REJETE"
+                        example: null
+                      nextSteps:
+                        type: array
+                        items:
+                          type: string
+                        description: "Étapes suivantes selon l'action effectuée"
+                        example: [
+                          "Le médecin a reçu un email de confirmation",
+                          "Il peut maintenant se connecter avec son email et mot de passe",
+                          "Son profil est visible pour les patients",
+                          "Il peut commencer à recevoir des demandes de rendez-vous"
+                        ]
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                medecin_valide:
+                  summary: Médecin validé avec succès
+                  value:
+                    success: true
+                    message: "Médecin validé avec succès"
+                    data:
+                      status: "VALIDE"
+                      message: "Dr Fatou Diabaté a été validé et peut maintenant se connecter à la plateforme."
+                      nextSteps: [
+                        "Le médecin a reçu un email de confirmation",
+                        "Il peut maintenant se connecter avec son email et mot de passe",
+                        "Son profil est visible pour les patients",
+                        "Il peut commencer à recevoir des demandes de rendez-vous"
+                      ]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+                medecin_rejete:
+                  summary: Médecin rejeté avec motif
+                  value:
+                    success: true
+                    message: "Médecin rejeté avec motif"
+                    data:
+                      status: "REJETE"
+                      message: "Dr Jean Kouassi a été rejeté. Un email avec le motif lui a été envoyé."
+                      motifRejet: "Documents illisibles, veuillez fournir des copies plus claires du diplôme et du certificat d'inscription à l'ordre"
+                      nextSteps: [
+                        "Le médecin a reçu un email avec le motif du rejet",
+                        "Il peut corriger les problèmes mentionnés",
+                        "Il doit contacter l'administration pour resoumission",
+                        "Son statut reste EN_ATTENTE pour révision future"
+                      ]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Requête invalide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    type: object
+              examples:
+                action_manquante:
+                  summary: Action non spécifiée
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "Paramètres de requête invalides"
+                    details:
+                      action: "Ce champ est obligatoire"
+                action_invalide:
+                  summary: Action invalide
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "Paramètres de requête invalides"
+                    details:
+                      action: "La valeur doit être VALIDE ou REJETE"
+                motif_manquant:
+                  summary: Motif requis pour rejet
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Motif de rejet obligatoire"
+                    details:
+                      code: "MOTIF_REQUIRED"
+                      field: "motifRejet"
+                motif_trop_court:
+                  summary: Motif trop court
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "Paramètres de requête invalides"
+                    details:
+                      motifRejet: "Le motif doit contenir au moins 10 caractères"
+                statut_invalide:
+                  summary: Médecin pas en attente
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Seuls les médecins en attente peuvent être validés"
+                    details:
+                      code: "INVALID_STATUS"
+                      currentStatus: "VALIDE"
+
+        '401':
+          description: Non authentifié
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "UNAUTHORIZED"
+                  message:
+                    type: string
+                    example: "Token d'authentification requis"
+
+        '403':
+          description: Accès refusé (rôle insuffisant)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "FORBIDDEN"
+                  message:
+                    type: string
+                    example: "Accès réservé aux administrateurs"
+
+        '404':
+          description: Médecin non trouvé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "NOT_FOUND"
+                  message:
+                    type: string
+                    example: "Médecin non trouvé"
+                  details:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "MEDECIN_NOT_FOUND"
+                      medecinId:
+                        type: string
+                        example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "INTERNAL_ERROR"
+                  message:
+                    type: string
+                    example: "Erreur interne lors de la validation du médecin"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

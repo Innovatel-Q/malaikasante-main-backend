@@ -1,0 +1,116 @@
+#!/usr/bin/env node
+
+/**
+ * Serveur HTTP avec gestion multi-environnement
+ */
+
+const app = require('../app');
+const debug = require('debug')('medecins-patients:server');
+const http = require('http');
+const Consts = require('../config/const');
+
+/**
+ * Obtenir le port selon l'environnement
+ */
+const port = normalizePort(Consts.getPort());
+app.set('port', port);
+
+/**
+ * Créer le serveur HTTP
+ */
+const server = http.createServer(app);
+
+/**
+ * Écouter sur le port configuré
+ */
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Normaliser le port en nombre, string, ou false
+ */
+function normalizePort(val) {
+  const port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // Named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // Port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Gestionnaire d'erreurs du serveur HTTP
+ */
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  const bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // Gestion des erreurs spécifiques
+  switch (error.code) {
+    case 'EACCES':
+      console.error(`❌ ${bind} nécessite des privilèges élevés`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(`❌ ${bind} est déjà utilisé`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Gestionnaire d'événement "listening" du serveur HTTP
+ */
+function onListening() {
+  const addr = server.address();
+  const bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+
+  const env = process.env.NODE_ENV || 'development';
+
+  console.log('\n🚀 ===== SERVEUR DÉMARRÉ =====');
+  console.log(`📍 URL: http://localhost:${addr.port}`);
+  console.log(`🌍 Environnement: ${env}`);
+  console.log(`⚡ App: ${Consts.APP_NAME}`);
+  console.log(`👤 Auteur: ${Consts.APP_AUTHOR}`);
+  console.log('📚 Documentation: http://localhost:' + addr.port + '/v1/api-docs');
+  console.log('🔍 Test API: http://localhost:' + addr.port + '/v1/info');
+  console.log('================================\n');
+
+  debug('Listening on ' + bind);
+}
+
+/**
+ * Gestion propre de l'arrêt du serveur
+ */
+process.on('SIGTERM', () => {
+  console.log('\n🛑 Arrêt du serveur en cours...');
+  server.close(() => {
+    console.log('✅ Serveur arrêté proprement');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('\n🛑 Arrêt du serveur (Ctrl+C)...');
+  server.close(() => {
+    console.log('✅ Serveur arrêté proprement');
+    process.exit(0);
+  });
+});

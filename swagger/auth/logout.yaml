@@ -1,0 +1,246 @@
+openapi: 3.0.0
+info:
+  title: Logout API
+  description: Gestion des déconnexions - session actuelle ou globale
+  version: 1.0.0
+
+paths:
+  /v1/auth/logout:
+    post:
+      tags:
+        - Déconnexion
+      summary: Se déconnecter de la session actuelle
+      description: |
+        Déconnecte l'utilisateur de la session actuelle uniquement en révoquant le token utilisé pour cette requête.
+        
+        **Comportement :**
+        - ✅ **Session actuelle fermée** (ce token révoqué)
+        - ✅ **Autres sessions préservées** (autres appareils restent connectés)
+        - ✅ **Déconnexion sélective** par appareil
+        
+        **Cas d'usage :**
+        - Déconnexion normale d'un appareil
+        - Fermeture d'application mobile/web
+        - Changement d'utilisateur sur un appareil partagé
+
+      security:
+        - bearerAuth: []
+
+      responses:
+        '200':
+          description: Déconnexion de la session actuelle réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Déconnexion réussie"
+                  data:
+                    type: object
+                    properties:
+                      logoutInfo:
+                        type: object
+                        properties:
+                          userId:
+                            type: string
+                            example: "uuid-user-123"
+                          userRole:
+                            type: string
+                            enum: [PATIENT, MEDECIN, ADMIN]
+                            example: "PATIENT"
+                          tokensRevoked:
+                            type: integer
+                            example: 1
+                          logoutTime:
+                            type: string
+                            format: date-time
+                            example: "2025-07-24T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                      securityInfo:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "Votre session actuelle a été fermée"
+                          action:
+                            type: string
+                            example: "Vos autres sessions restent actives"
+                          affectedDevices:
+                            type: string
+                            example: "Cet appareil uniquement"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-07-24T14:30:22.123Z"
+
+        '401':
+          description: Token d'authentification manquant ou invalide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "UNAUTHORIZED"
+                  message:
+                    type: string
+                    example: "Token d'authentification invalide ou expiré"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-07-24T14:30:22.123Z"
+
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "INTERNAL_ERROR"
+                  message:
+                    type: string
+                    example: "Erreur interne lors de la déconnexion"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /v1/auth/logout/all:
+    delete:
+      tags:
+        - Déconnexion
+      summary: Se déconnecter de toutes les sessions (déconnexion globale)
+      description: |
+        Déconnecte l'utilisateur de TOUTES ses sessions actives en révoquant tous ses tokens (ACCESS + REFRESH).
+        
+        **Comportement :**
+        - 🔥 **Toutes les sessions fermées** (tous les tokens révoqués)
+        - 🔥 **Tous les appareils déconnectés** (mobile, web, tablette, etc.)
+        - 🔥 **Déconnexion complète** et sécurisée
+        
+        **Cas d'usage :**
+        - Sécurité : téléphone/ordinateur volé ou perdu
+        - Suspicion de compromission de compte
+        - Changement de mot de passe (optionnel)
+        - Nettoyage de toutes les sessions
+
+      security:
+        - bearerAuth: []
+
+      responses:
+        '200':
+          description: Déconnexion globale réussie - Toutes les sessions fermées
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Déconnexion globale réussie"
+                  data:
+                    type: object
+                    properties:
+                      logoutInfo:
+                        type: object
+                        properties:
+                          userId:
+                            type: string
+                            example: "uuid-user-123"
+                          userRole:
+                            type: string
+                            enum: [PATIENT, MEDECIN, ADMIN]
+                            example: "MEDECIN"
+                          tokensRevoked:
+                            type: integer
+                            example: 5
+                          logoutTime:
+                            type: string
+                            format: date-time
+                            example: "2025-07-24T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                      securityInfo:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "Tous vos tokens d'accès ont été révoqués"
+                          action:
+                            type: string
+                            example: "Vous devez vous reconnecter pour accéder à nouveau"
+                          affectedDevices:
+                            type: string
+                            example: "Tous les appareils connectés"
+                      nextSteps:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "Reconnectez-vous avec vos identifiants"
+                          - "Toutes vos sessions ont été fermées"
+                          - "Cette action améliore la sécurité de votre compte"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-07-24T14:30:22.123Z"
+
+        '401':
+          description: Token d'authentification manquant ou invalide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "UNAUTHORIZED"
+                  message:
+                    type: string
+                    example: "Token d'authentification invalide ou expiré"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "INTERNAL_ERROR"
+                  message:
+                    type: string
+                    example: "Erreur interne lors de la déconnexion globale"
+                  timestamp:
+                    type: string
+                    format: date-time

@@ -1,0 +1,235 @@
+openapi: 3.0.0
+info:
+  title: Patient Registration API
+  description: Inscription de nouveaux patients sans mot de passe (authentification OTP uniquement)
+  version: 1.0.0
+
+paths:
+  /v1/auth/register/patient:
+    post:
+      tags:
+        - Authentification
+      summary: Inscrire un nouveau patient
+      description: |
+        Crée un nouveau compte patient SANS mot de passe. Les patients utilisent uniquement l'OTP pour s'authentifier.
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nom
+                - prenom
+                - telephone
+                - email
+              properties:
+                nom:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Nom de famille du patient
+                  example: "Kouassi"
+                prenom:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Prénom du patient
+                  example: "Jean"
+                telephone:
+                  type: string
+                  pattern: '^[0-9]{8,10}$'
+                  description: |
+                    Numéro de téléphone (doit être vérifié par OTP)
+                  example: "0102030405"
+                email:
+                  type: string
+                  format: email
+                  description: Adresse email unique
+                  example: "jean.kouassi@email.com"
+                dateNaissance:
+                  type: string
+                  format: date
+                  description: Date de naissance (optionnelle)
+                  example: "1985-03-15"
+                sexe:
+                  type: string
+                  enum: [M, F, AUTRE]
+                  description: Sexe du patient (optionnel)
+                  example: "M"
+            examples:
+              inscription_complete:
+                summary: Inscription avec tous les champs (SANS PASSWORD)
+                value:
+                  nom: "Kouassi"
+                  prenom: "Jean"
+                  telephone: "0102030405"
+                  email: "jean.kouassi@email.com"
+                  dateNaissance: "1985-03-15"
+                  sexe: "M"
+              inscription_minimale:
+                summary: Inscription avec champs obligatoires uniquement
+                value:
+                  nom: "Diabaté"
+                  prenom: "Awa"
+                  telephone: "0107080910"
+                  email: "awa.diabate@email.com"
+
+      responses:
+        '201':
+          description: Compte patient créé avec succès (avec tokens)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Compte patient créé avec succès"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: "uuid-patient-123"
+                          telephone:
+                            type: string
+                            example: "0102030405"
+                          email:
+                            type: string
+                            example: "jean.kouassi@email.com"
+                          nom:
+                            type: string
+                            example: "Kouassi"
+                          prenom:
+                            type: string
+                            example: "Jean"
+                          role:
+                            type: string
+                            example: "PATIENT"
+                          statut:
+                            type: string
+                            example: "ACTIF"
+                          hasPassword:
+                            type: boolean
+                            example: false
+                            description: "Les patients n'ont pas de mot de passe"
+                          authMethod:
+                            type: string
+                            example: "OTP_ONLY"
+                            description: "Méthode d'authentification du patient"
+                          patient:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                example: "patient-123"
+                              dateNaissance:
+                                type: string
+                                format: date
+                                nullable: true
+                                example: "1985-03-15"
+                              sexe:
+                                type: string
+                                enum: [M, F, AUTRE]
+                                nullable: true
+                                example: "M"
+                              ville:
+                                type: string
+                                example: "Abidjan"
+                              abonneContenuPro:
+                                type: boolean
+                                example: false
+                      tokens:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+                            description: Token JWT d'accès
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          refreshToken:
+                            type: string
+                            description: Token de rafraîchissement
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          expiresIn:
+                            type: string
+                            description: Durée de validité du token d'accès
+                            example: "7d"
+                      accountInfo:
+                        type: object
+                        properties:
+                          createdAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                          isEmailVerified:
+                            type: boolean
+                            example: false
+                          isPhoneVerified:
+                            type: boolean
+                            example: true
+                          accountType:
+                            type: string
+                            example: "PATIENT"
+                          authenticationMethod:
+                            type: string
+                            example: "OTP_ONLY"
+                      nextSteps:
+                        type: array
+                        items:
+                          type: string
+                        example: 
+                          - "Votre compte patient est actif et connecté"
+                          - "Pas besoin de mot de passe - utilisez toujours l'OTP pour vous connecter"
+                          - "Vous pouvez maintenant rechercher des médecins"
+                          - "Complétez votre profil médical pour une meilleure expérience"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Erreurs de validation ou contraintes métier
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["BAD_REQUEST"]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                champs_manquants:
+                  summary: "Champs obligatoires manquants"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Champs obligatoires manquants"
+                    data:
+                      missingFields: ["email"]
+                      requiredFields: ["nom", "prenom", "telephone", "email"]
+                      message: "Les champs suivants sont obligatoires: email"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+      security: []

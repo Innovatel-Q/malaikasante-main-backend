@@ -1,0 +1,390 @@
+openapi: 3.0.0
+info:
+  title: Patient Profile API
+  description: Mise à jour du profil patient avec validation complète
+  version: 1.0.0
+
+paths:
+  /v1/patients/profile:
+    put:
+      tags:
+        - Patients
+      summary: Mettre à jour le profil patient
+      description: |
+        Permet aux patients de mettre à jour leurs informations personnelles et médicales.
+
+      security:
+        - bearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                # Champs User
+                nom:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Nom de famille
+                  example: "Kouassi"
+                prenom:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Prénom
+                  example: "Jean"
+                email:
+                  type: string
+                  format: email
+                  description: Adresse email unique
+                  example: "jean.kouassi.nouveau@email.com"
+                telephone:
+                  type: string
+                  pattern: '^[0-9]{8,10}$'
+                  description: Numéro de téléphone unique
+                  example: "0198765432"
+                canalCommunicationPrefere:
+                  type: string
+                  enum: [SMS, EMAIL]
+                  description: Canal de communication préféré
+                  example: "EMAIL"
+                # Champs Patient
+                dateNaissance:
+                  type: string
+                  format: date
+                  description: Date de naissance
+                  example: "1985-03-15"
+                sexe:
+                  type: string
+                  enum: [M, F, AUTRE]
+                  description: Sexe du patient
+                  example: "M"
+                adresse:
+                  type: string
+                  maxLength: 500
+                  description: Adresse complète
+                  example: "Rue des Jardins, Cocody"
+                ville:
+                  type: string
+                  maxLength: 100
+                  description: Ville de résidence
+                  example: "Abidjan"
+                codePostal:
+                  type: string
+                  maxLength: 10
+                  description: Code postal
+                  example: "01BP123"
+                groupeSanguin:
+                  type: string
+                  enum: [A+, A-, B+, B-, AB+, AB-, O+, O-]
+                  description: Groupe sanguin
+                  example: "O+"
+                poids:
+                  type: number
+                  minimum: 1
+                  maximum: 500
+                  description: Poids en kilogrammes
+                  example: 75.5
+                taille:
+                  type: integer
+                  minimum: 30
+                  maximum: 250
+                  description: Taille en centimètres
+                  example: 180
+                allergies:
+                  type: string
+                  maxLength: 2000
+                  description: Allergies connues
+                  example: "Allergie aux arachides, sensibilité au lactose"
+                antecedentsMedicaux:
+                  type: string
+                  maxLength: 2000
+                  description: Antécédents médicaux
+                  example: "Hypertension familiale, diabète type 2"
+                traitementsEnCours:
+                  type: string
+                  maxLength: 2000
+                  description: Traitements médicaux en cours
+                  example: "Metformine 500mg 2x/jour"
+            examples:
+              mise_a_jour_complete:
+                summary: Mise à jour complète du profil
+                value:
+                  nom: "Kouassi"
+                  prenom: "Jean-Baptiste"
+                  email: "jean.baptiste.kouassi@newmail.com"
+                  telephone: "0198765432"
+                  canalCommunicationPrefere: "EMAIL"
+                  dateNaissance: "1985-03-15"
+                  sexe: "M"
+                  adresse: "Nouvelle adresse, Marcory"
+                  ville: "Abidjan"
+                  codePostal: "01BP456"
+                  groupeSanguin: "O+"
+                  poids: 78.2
+                  taille: 182
+                  allergies: "Allergie aux fruits de mer"
+                  antecedentsMedicaux: "Hypertension familiale"
+                  traitementsEnCours: "Vitamines D3"
+              mise_a_jour_partielle:
+                summary: Mise à jour de quelques champs seulement
+                value:
+                  email: "nouveau.email@gmail.com"
+                  telephone: "0187654321"
+                  poids: 80
+                  allergies: "Allergie aux arachides et lactose"
+
+      responses:
+        '200':
+          description: Profil mis à jour avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Profil mis à jour avec succès"
+                  data:
+                    type: object
+                    properties:
+                      profile:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: "uuid-patient-123"
+                          email:
+                            type: string
+                            example: "jean.kouassi@email.com"
+                          telephone:
+                            type: string
+                            example: "0102030405"
+                          nom:
+                            type: string
+                            example: "Kouassi"
+                          prenom:
+                            type: string
+                            example: "Jean"
+                          role:
+                            type: string
+                            example: "PATIENT"
+                          statut:
+                            type: string
+                            example: "ACTIF"
+                          canalCommunicationPrefere:
+                            type: string
+                            example: "EMAIL"
+                          updatedAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          patient:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                example: "patient-123"
+                              dateNaissance:
+                                type: string
+                                format: date
+                                example: "1985-03-15"
+                              sexe:
+                                type: string
+                                example: "M"
+                              adresse:
+                                type: string
+                                example: "Rue des Jardins, Cocody"
+                              ville:
+                                type: string
+                                example: "Abidjan"
+                              codePostal:
+                                type: string
+                                example: "01BP123"
+                              groupeSanguin:
+                                type: string
+                                example: "O+"
+                              poids:
+                                type: number
+                                example: 75.5
+                              taille:
+                                type: integer
+                                example: 180
+                              allergies:
+                                type: string
+                                example: "Allergie aux arachides"
+                              antecedentsMedicaux:
+                                type: string
+                                example: "Hypertension familiale"
+                              traitementsEnCours:
+                                type: string
+                                example: "Vitamines D3"
+                              abonneContenuPro:
+                                type: boolean
+                                example: false
+                              age:
+                                type: integer
+                                description: "Calculé automatiquement"
+                                example: 39
+                              imc:
+                                type: number
+                                description: "Calculé automatiquement si poids/taille disponibles"
+                                example: 23.3
+                      updateSummary:
+                        type: object
+                        properties:
+                          fieldsUpdated:
+                            type: array
+                            items:
+                              type: string
+                            example: ["email", "poids", "allergies"]
+                          userFieldsUpdated:
+                            type: array
+                            items:
+                              type: string
+                            example: ["email"]
+                          patientFieldsUpdated:
+                            type: array
+                            items:
+                              type: string
+                            example: ["poids", "allergies"]
+                          totalFieldsUpdated:
+                            type: integer
+                            example: 3
+                          updateTime:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                      nextSteps:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "Votre profil a été mis à jour avec succès"
+                          - "Les modifications sont immédiatement disponibles"
+                          - "Vos préférences de communication sont prises en compte"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Erreurs de validation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["BAD_REQUEST"]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                email_existe:
+                  summary: "Email déjà utilisé"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Adresse email déjà utilisée"
+                    data:
+                      code: "EMAIL_ALREADY_EXISTS"
+                      message: "Cette adresse email est déjà associée à un autre compte."
+                      field: "email"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                date_invalide:
+                  summary: "Date de naissance invalide"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Date de naissance invalide"
+                    data:
+                      code: "INVALID_BIRTH_DATE"
+                      message: "La date de naissance doit correspondre à un âge entre 0 et 120 ans."
+                      field: "dateNaissance"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          description: Authentification requise
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["UNAUTHORIZED"]
+                  message:
+                    type: string
+                    example: "Token d'authentification requis"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+        '403':
+          description: Accès interdit (non-patient)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["FORBIDDEN"]
+                  message:
+                    type: string
+                    example: "Accès refusé - Permissions insuffisantes"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+        '500':
+          description: Erreur serveur interne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["INTERNAL_SERVER_ERROR"]
+                  message:
+                    type: string
+                    example: "Erreur interne lors de la mise à jour du profil"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

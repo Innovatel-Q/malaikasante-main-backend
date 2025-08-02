@@ -1,0 +1,265 @@
+openapi: 3.0.0
+info:
+  title: Token Refresh API
+  description: Renouvellement des tokens d'accès avec rotation des refresh tokens
+  version: 1.0.0
+
+paths:
+  /v1/auth/refresh:
+    post:
+      tags:
+        - Authentification
+      summary: Rafraîchir les tokens d'accès
+      description: |
+        Renouvelle l'access token en utilisant un refresh token valide.
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+                  description: |
+                    Refresh token JWT obtenu lors de la connexion ou d'un précédent refresh
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1dWlkLXBhdGllbnQtMTIzIiwicm9sZSI6IlBBVElFTlQiLCJ0eXBlIjoiUkVGUkVTSCIsImlhdCI6MTcwNTMzNDQyMiwiZXhwIjoxNzA3OTI2NDIyfQ.signature"
+            examples:
+              patient_refresh:
+                summary: Refresh token patient
+                value:
+                  refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              medecin_refresh:
+                summary: Refresh token médecin
+                value:
+                  refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+      responses:
+        '200':
+          description: Tokens rafraîchis avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Tokens rafraîchis avec succès"
+                  data:
+                    type: object
+                    properties:
+                      tokens:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+                            description: Nouveau token JWT d'accès
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          refreshToken:
+                            type: string
+                            description: Nouveau refresh token (rotation)
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          expiresIn:
+                            type: string
+                            description: Durée de validité du nouvel access token
+                            example: "7d"
+                      sessionInfo:
+                        type: object
+                        properties:
+                          refreshedAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                          userId:
+                            type: string
+                            example: "uuid-patient-123"
+                          userRole:
+                            type: string
+                            enum: [PATIENT, MEDECIN]
+                            example: "PATIENT"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                patient_success:
+                  summary: Refresh réussi pour un patient
+                  value:
+                    success: true
+                    message: "Tokens rafraîchis avec succès"
+                    data:
+                      tokens:
+                        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        expiresIn: "7d"
+                      sessionInfo:
+                        refreshedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                        userId: "uuid-patient-123"
+                        userRole: "PATIENT"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                medecin_success:
+                  summary: Refresh réussi pour un médecin
+                  value:
+                    success: true
+                    message: "Tokens rafraîchis avec succès"
+                    data:
+                      tokens:
+                        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        expiresIn: "1d"
+                      sessionInfo:
+                        refreshedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                        userId: "uuid-medecin-456"
+                        userRole: "MEDECIN"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Erreurs de validation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["BAD_REQUEST"]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                champ_manquant:
+                  summary: "Refresh token manquant"
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Champs obligatoires manquants"
+                    data:
+                      missingFields: ["refreshToken"]
+                      requiredFields: ["refreshToken"]
+                      message: "Les champs suivants sont obligatoires: refreshToken"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          description: Token invalide ou expiré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["UNAUTHORIZED"]
+                  message:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                token_invalide:
+                  summary: "Refresh token JWT invalide"
+                  value:
+                    success: false
+                    error: "UNAUTHORIZED"
+                    message: "Refresh token invalide ou expiré"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                token_deja_utilise:
+                  summary: "Refresh token déjà utilisé (rotation)"
+                  value:
+                    success: false
+                    error: "UNAUTHORIZED"
+                    message: "Refresh token invalide ou déjà utilisé"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                type_incorrect:
+                  summary: "Access token fourni au lieu d'un refresh token"
+                  value:
+                    success: false
+                    error: "UNAUTHORIZED"
+                    message: "Type de token incorrect"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '403':
+          description: Accès interdit
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["FORBIDDEN"]
+                  message:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                admin_interdit:
+                  summary: "Admin tentant de rafraîchir (interdit)"
+                  value:
+                    success: false
+                    error: "FORBIDDEN"
+                    message: "Les administrateurs ne peuvent pas rafraîchir leurs tokens"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                compte_suspendu:
+                  summary: "Compte utilisateur suspendu"
+                  value:
+                    success: false
+                    error: "FORBIDDEN"
+                    message: "Compte utilisateur suspendu ou désactivé"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                medecin_non_valide:
+                  summary: "Médecin non validé"
+                  value:
+                    success: false
+                    error: "FORBIDDEN"
+                    message: "Compte médecin non validé"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          description: Erreur serveur interne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    enum: ["INTERNAL_SERVER_ERROR"]
+                  message:
+                    type: string
+                    example: "Erreur interne lors du rafraîchissement"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+      security: []  # Endpoint public (utilise le refresh token comme authentification)

@@ -1,0 +1,358 @@
+openapi: 3.0.0
+info:
+  title: Admin Doctors Diplomes Upload API
+  description: Upload des diplômes de médecins par les administrateurs
+  version: 1.0.0
+
+paths:
+  /v1/admin/doctors/{medecinId}/diplomes/upload:
+    post:
+      tags:
+        - Administration
+      summary: Upload d'un diplôme de médecin
+      description: |
+        Permet aux administrateurs d'uploader un diplôme pour un médecin en attente de validation.
+        
+        **Fonctionnalités :**
+        - 📤 **Upload sécurisé** via service de fichiers externe
+        - 📋 **Support multi-diplômes** : Ajoute sans écraser les existants
+        - 🔒 **Validation stricte** : Médecin EN_ATTENTE uniquement
+        - 📊 **Traçabilité complète** : Admin, IP, horodatage
+        - 📁 **Formats acceptés** : PDF, JPG, PNG (max 10MB)
+        
+        **Workflow :**
+        1. Admin sélectionne un médecin en attente
+        2. Upload le diplôme via cette route
+        3. Fichier stocké dans le service externe
+        4. Métadonnées ajoutées au tableau JSON existant
+        
+        **User Stories :** Administrateurs-US1 (Gestion comptes médecins)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: medecinId
+          in: path
+          description: ID unique du médecin
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - diplome
+              properties:
+                diplome:
+                  type: string
+                  format: binary
+                  description: |
+                    Fichier diplôme à uploader
+                    
+                    **Formats acceptés :** PDF, JPG, PNG
+                    
+                    **Taille max :** 10MB
+                description:
+                  type: string
+                  maxLength: 255
+                  description: Description optionnelle du diplôme
+                  example: "Diplôme de médecine générale - Université d'Abidjan"
+            examples:
+              diplome_principal:
+                summary: Diplôme principal de médecine
+                value:
+                  diplome: "[FICHIER_PDF]"
+                  description: "Diplôme de Docteur en Médecine"
+              specialisation:
+                summary: Diplôme de spécialisation
+                value:
+                  diplome: "[FICHIER_PDF]"
+                  description: "Certificat de spécialisation en Cardiologie"
+
+      responses:
+        '200':
+          description: Diplôme uploadé avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Diplôme uploadé avec succès"
+                  data:
+                    type: object
+                    properties:
+                      medecin:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                          nom:
+                            type: string
+                            example: "Diabaté"
+                          prenom:
+                            type: string
+                            example: "Dr Fatou"
+                          email:
+                            type: string
+                            example: "dr.fatou@example.com"
+                      diplome:
+                        type: object
+                        properties:
+                          fileId:
+                            type: string
+                            example: "file-uuid-12345"
+                            description: "ID du fichier dans le service externe"
+                          nom_fichier:
+                            type: string
+                            example: "diplome_medecine.pdf"
+                          taille:
+                            type: integer
+                            example: 2048000
+                            description: "Taille en bytes"
+                          mime_type:
+                            type: string
+                            example: "application/pdf"
+                          description:
+                            type: string
+                            nullable: true
+                            example: "Diplôme de médecine générale"
+                      statistiques:
+                        type: object
+                        properties:
+                          totalDiplomes:
+                            type: integer
+                            example: 2
+                            description: "Nombre total de diplômes après ajout"
+                          nouveauDiplome:
+                            type: boolean
+                            example: true
+                      upload:
+                        type: object
+                        properties:
+                          uploadedBy:
+                            type: string
+                            example: "Admin Pierre Kouassi"
+                          uploadedAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                premier_diplome:
+                  summary: Premier diplôme uploadé
+                  value:
+                    success: true
+                    message: "Diplôme uploadé avec succès"
+                    data:
+                      medecin:
+                        id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        nom: "Diabaté"
+                        prenom: "Dr Fatou"
+                        email: "dr.fatou@example.com"
+                      diplome:
+                        fileId: "file-uuid-12345"
+                        nom_fichier: "diplome_medecine.pdf"
+                        taille: 2048000
+                        mime_type: "application/pdf"
+                        description: "Diplôme de médecine générale"
+                      statistiques:
+                        totalDiplomes: 1
+                        nouveauDiplome: true
+                      upload:
+                        uploadedBy: "Admin Pierre Kouassi"
+                        uploadedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+                diplome_supplementaire:
+                  summary: Diplôme supplémentaire (spécialisation)
+                  value:
+                    success: true
+                    message: "Diplôme uploadé avec succès"
+                    data:
+                      medecin:
+                        id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        nom: "Diabaté"
+                        prenom: "Dr Fatou"
+                        email: "dr.fatou@example.com"
+                      diplome:
+                        fileId: "file-uuid-67890"
+                        nom_fichier: "specialisation_cardiologie.pdf"
+                        taille: 1536000
+                        mime_type: "application/pdf"
+                        description: "Certificat de spécialisation en Cardiologie"
+                      statistiques:
+                        totalDiplomes: 2
+                        nouveauDiplome: true
+                      upload:
+                        uploadedBy: "Admin Pierre Kouassi"
+                        uploadedAt: "2024-01-15T14:45:10.456Z"
+                        ip: "192.168.1.100"
+                    timestamp: "2024-01-15T14:45:10.456Z"
+
+        '400':
+          description: Requête invalide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    type: object
+              examples:
+                no_file:
+                  summary: Aucun fichier fourni
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Aucun fichier diplôme fourni"
+                    details:
+                      code: "NO_FILE"
+                      field: "diplome"
+                file_too_large:
+                  summary: Fichier trop volumineux
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Fichier trop volumineux. Maximum: 10MB"
+                    details:
+                      code: "FILE_TOO_LARGE"
+                      maxSize: "10MB"
+                invalid_format:
+                  summary: Format de fichier non autorisé
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Format de fichier non autorisé. Formats acceptés: PDF, JPG, PNG"
+                invalid_status:
+                  summary: Médecin pas en attente
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Seuls les médecins en attente peuvent recevoir des documents"
+                    details:
+                      code: "INVALID_STATUS"
+                      currentStatus: "VALIDE"
+
+        '401':
+          description: Non authentifié
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "UNAUTHORIZED"
+                  message:
+                    type: string
+                    example: "Token d'authentification requis"
+
+        '403':
+          description: Accès refusé (rôle insuffisant)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "FORBIDDEN"
+                  message:
+                    type: string
+                    example: "Accès réservé aux administrateurs"
+
+        '404':
+          description: Médecin non trouvé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "NOT_FOUND"
+                  message:
+                    type: string
+                    example: "Médecin non trouvé"
+                  details:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "MEDECIN_NOT_FOUND"
+                      medecinId:
+                        type: string
+                        example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                  message:
+                    type: string
+              examples:
+                upload_service_error:
+                  summary: Erreur service de fichiers
+                  value:
+                    success: false
+                    error: "INTERNAL_ERROR"
+                    message: "Erreur lors de l'upload du fichier"
+                    details:
+                      code: "UPLOAD_SERVICE_ERROR"
+                general_error:
+                  summary: Erreur générale
+                  value:
+                    success: false
+                    error: "INTERNAL_ERROR"
+                    message: "Erreur interne lors de l'upload du diplôme"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

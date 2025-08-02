@@ -1,0 +1,227 @@
+openapi: 3.0.0
+info:
+  title: Endpoint Information API
+  description: Informations générales sur l'API Plateforme Médecins-Patients
+  version: 1.0.0
+
+paths:
+  /v1/info:
+    get:
+      tags:
+        - Informations Système
+      summary: Informations générales sur l'API
+      description: |
+        Retourne les informations de base de l'API, incluant la version, 
+        l'environnement, les endpoints disponibles et les fonctionnalités supportées.
+        
+        **Utilisation :**
+        - Vérifier que l'API est accessible
+        - Obtenir la liste des endpoints disponibles
+        - Connaître les fonctionnalités supportées
+        - Vérifier l'environnement d'exécution
+
+      responses:
+        '200':
+          description: Informations de l'API récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                    description: Statut de la requête
+                  data:
+                    type: object
+                    properties:
+                      appName:
+                        type: string
+                        example: "Plateforme Médecins-Patients"
+                        description: Nom de l'application
+                      description:
+                        type: string
+                        example: "API backend pour la mise en relation médecins-patients en Côte d'Ivoire"
+                        description: Description de l'application
+                      author:
+                        type: string
+                        example: "MEDEV GROUP"
+                        description: Auteur de l'application
+                      version:
+                        type: string
+                        example: "1.0.0"
+                        description: Version de l'API
+                      environment:
+                        type: string
+                        enum: [development, test, production]
+                        example: "development"
+                        description: Environnement d'exécution
+                      timestamp:
+                        type: string
+                        format: date-time
+                        example: "2024-01-15 14:30:22"
+                        description: Horodatage de la réponse
+                      endpoints:
+                        type: object
+                        description: Endpoints disponibles dans l'API
+                        properties:
+                          documentation:
+                            type: string
+                            example: "/v1/api-docs"
+                            description: URL de la documentation Swagger
+                          info:
+                            type: string
+                            example: "/v1/info"
+                            description: URL des informations système
+                          auth:
+                            type: string
+                            example: "/v1/auth/*"
+                            description: Endpoints d'authentification
+                          patients:
+                            type: string
+                            example: "/v1/patients/*"
+                            description: Endpoints de gestion des patients
+                          medecins:
+                            type: string
+                            example: "/v1/medecins/*"
+                            description: Endpoints de gestion des médecins
+                      features:
+                        type: object
+                        description: Fonctionnalités supportées
+                        properties:
+                          authentication:
+                            type: string
+                            example: "JWT + OTP"
+                            description: Système d'authentification
+                          sms:
+                            type: string
+                            example: "LeTexto API"
+                            description: Service d'envoi SMS
+                          database:
+                            type: string
+                            example: "MySQL + Prisma"
+                            description: Base de données utilisée
+                          documentation:
+                            type: string
+                            example: "Swagger UI"
+                            description: Documentation API
+              examples:
+                developmentResponse:
+                  summary: Réponse en environnement de développement
+                  value:
+                    success: true
+                    data:
+                      appName: "Plateforme Médecins-Patients"
+                      description: "API backend pour la mise en relation médecins-patients en Côte d'Ivoire"
+                      author: "MEDEV GROUP"
+                      version: "1.0.0"
+                      environment: "development"
+                      timestamp: "2024-01-15 14:30:22"
+                      endpoints:
+                        documentation: "/v1/api-docs"
+                        info: "/v1/info"
+                        auth: "/v1/auth/*"
+                        patients: "/v1/patients/*"
+                        medecins: "/v1/medecins/*"
+                      features:
+                        authentication: "JWT + OTP"
+                        sms: "LeTexto API"
+                        database: "MySQL + Prisma"
+                        documentation: "Swagger UI"
+                productionResponse:
+                  summary: Réponse en environnement de production
+                  value:
+                    success: true
+                    data:
+                      appName: "Plateforme Médecins-Patients"
+                      description: "API backend pour la mise en relation médecins-patients en Côte d'Ivoire"
+                      author: "MEDEV GROUP"
+                      version: "1.0.0"
+                      environment: "production"
+                      timestamp: "2024-01-15 14:30:22"
+                      endpoints:
+                        documentation: "/v1/api-docs"
+                        info: "/v1/info"
+                        auth: "/v1/auth/*"
+                        patients: "/v1/patients/*"
+                        medecins: "/v1/medecins/*"
+                      features:
+                        authentication: "JWT + OTP"
+                        sms: "LeTexto API"
+                        database: "MySQL + Prisma"
+                        documentation: "Swagger UI"
+
+        '500':
+          description: Erreur serveur interne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "INTERNAL_SERVER_ERROR"
+                  message:
+                    type: string
+                    example: "Erreur interne du serveur"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+
+      security: []  # Endpoint public, pas d'authentification requise
+
+  /v1/ping:
+    get:
+      tags:
+        - Informations Système
+      summary: Test de connectivité
+      description: |
+        Endpoint simple pour vérifier que l'API est accessible et fonctionnelle.
+        Utile pour les tests de santé (health checks) et la surveillance.
+
+      responses:
+        '200':
+          description: API accessible et fonctionnelle
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "pong"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+                  uptime:
+                    type: number
+                    example: 3600.25
+                    description: Temps de fonctionnement du serveur en secondes
+                  environment:
+                    type: string
+                    enum: [development, test, production]
+                    example: "development"
+              examples:
+                successResponse:
+                  summary: Réponse de succès
+                  value:
+                    success: true
+                    message: "pong"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                    uptime: 3600.25
+                    environment: "development"
+
+      security: []  # Endpoint public
+
+tags:
+  - name: Informations Système
+    description: |
+      Endpoints pour obtenir des informations sur l'état et la configurati

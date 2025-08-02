@@ -1,0 +1,524 @@
+generator client {
+ provider = "prisma-client-js"
+}
+
+datasource db {
+ provider = "mysql"
+ url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+ PATIENT
+ MEDECIN
+ ADMIN
+}
+
+enum StatutUser {
+ ACTIF
+ SUSPENDU
+ DESACTIVE
+}
+
+enum Canal {
+ SMS
+ EMAIL
+}
+
+enum TypeToken {
+ ACCESS
+ REFRESH
+ RESET_PASSWORD
+ EMAIL_VERIFICATION
+}
+
+enum Sexe {
+ M
+ F
+ AUTRE
+}
+
+enum StatutValidation {
+ EN_ATTENTE
+ VALIDE
+ REJETE
+}
+
+enum JourSemaine {
+ LUNDI
+ MARDI
+ MERCREDI
+ JEUDI
+ VENDREDI
+ SAMEDI
+ DIMANCHE
+}
+
+enum TypeConsultation {
+ DOMICILE
+ CLINIQUE
+ TELECONSULTATION
+}
+
+enum StatutRendezVous {
+ DEMANDE
+ EN_ATTENTE
+ CONFIRME
+ REFUSE
+ ANNULE
+ TERMINE
+}
+
+enum NiveauUrgence {
+ URGENT
+ NORMAL
+ SUIVI_ROUTINE
+}
+
+enum TypeEvaluation {
+ PATIENT_EVALUE_MEDECIN
+ MEDECIN_EVALUE_PATIENT
+}
+
+enum CategorieTicket {
+ BUG
+ QUESTION
+ LITIGE
+ SUGGESTION
+ AUTRE
+}
+
+enum PrioriteTicket {
+ BASSE
+ NORMALE
+ HAUTE
+ CRITIQUE
+}
+
+enum StatutTicket {
+ OUVERT
+ EN_COURS
+ EN_ATTENTE
+ RESOLU
+ FERME
+}
+
+enum TypeNotification {
+ RENDEZ_VOUS
+ VALIDATION_COMPTE
+ PAIEMENT
+ RAPPEL
+ SYSTEME
+}
+
+enum CanalNotification {
+ EMAIL
+ SMS
+ PUSH
+ IN_APP
+}
+
+enum StatutNotification {
+ EN_ATTENTE
+ ENVOYE
+ LU
+ ECHEC
+}
+
+enum PrioriteNotification {
+ BASSE
+ NORMALE
+ HAUTE
+}
+
+// ============================================================================
+// TABLES PRINCIPALES
+// ============================================================================
+
+model User {
+ id                        String   @id @default(uuid())
+ email                     String   @unique @db.VarChar(255)
+ telephone                 String   @unique @db.VarChar(20)
+ nom                       String   @db.VarChar(100)
+ prenom                    String   @db.VarChar(100)
+ password                  String?  @db.VarChar(255)
+ role                      Role
+ statut                    StatutUser @default(ACTIF)
+ canalCommunicationPrefere Canal    @default(EMAIL) @map("canal_communication_prefere")
+ otpCode                   String?  @db.VarChar(6) @map("otp_code")
+ otpExpiration             DateTime? @map("otp_expiration")
+ createdAt                 DateTime @default(now()) @map("created_at")
+ updatedAt                 DateTime @updatedAt @map("updated_at")
+
+ // Relations
+ userTokens                UserToken[]
+ patient                   Patient?
+ medecin                   Medecin?
+ medecinValidations        Medecin[]             @relation("MedecinValidation")
+ modificationsRendezVous   RendezVousHistorique[] @relation("RendezVousModification")
+ ticketsSupport            TicketSupport[]       @relation("TicketUser")
+ ticketsAssignes           TicketSupport[]       @relation("TicketAdmin")
+ evaluationsDonnees        Evaluation[]          @relation("EvaluateurRelation")
+ evaluationsRecues         Evaluation[]          @relation("EvalueRelation")
+ notifications             Notification[]        @relation("NotificationUser")
+
+ @@index([email])
+ @@index([telephone])
+ @@index([role])
+ @@map("users")
+}
+
+model Otp {
+  id          String   @id @default(uuid())
+  telephone   String   @db.VarChar(20)
+  code        String   @db.VarChar(6)
+  expiresAt   DateTime @map("expires_at")
+  utilise     Boolean  @default(false)
+  tentatives  Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([telephone])
+  @@index([code])
+  @@index([expiresAt])
+  @@map("otps")
+}
+
+model UserToken {
+ id             String    @id @default(uuid())
+ userId         String    @map("user_id")
+ typeToken      TypeToken @map("type_token")
+ tokenHash      String    @db.VarChar(64) @map("token_hash")
+ dateExpiration DateTime  @map("date_expiration")
+ utilise        Boolean   @default(false)
+ createdAt      DateTime  @default(now()) @map("created_at")
+
+ // Relations
+ user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+ @@index([userId])
+ @@index([tokenHash])
+ @@index([typeToken, dateExpiration])
+ @@map("user_tokens")
+}
+
+model MedecinSpecialite {
+ id          String  @id @default(uuid())
+ nom         String  @unique @db.VarChar(100)
+ description String? @db.Text
+ active      Boolean @default(true)
+
+ @@map("medecin_specialites")
+}
+
+model Clinique {
+ id         String    @id @default(uuid())
+ nom        String    @db.VarChar(200)
+ adresse    String    @db.Text
+ ville      String    @default("Abidjan") @db.VarChar(100)
+ telephone  String?   @db.VarChar(20)
+ email      String?   @db.VarChar(255)
+ latitude   Decimal?  @db.Decimal(10, 8)
+ longitude  Decimal?  @db.Decimal(11, 8)
+ horaires   Json?
+ services   Json?
+ active     Boolean   @default(true)
+ createdAt  DateTime  @default(now()) @map("created_at")
+
+ medecins       Medecin[]
+ disponibilites Disponibilite[]
+ rendezVous     RendezVous[]
+
+ @@index([ville])
+ @@index([nom])
+ @@map("cliniques")
+}
+
+model Patient {
+ id                     String    @id @default(uuid())
+ userId                 String    @unique @map("user_id")
+ dateNaissance          DateTime? @map("date_naissance") @db.Date
+ sexe                   Sexe?
+ adresse                String?   @db.Text
+ ville                  String    @default("Abidjan") @db.VarChar(100)
+ codePostal             String?   @db.VarChar(10) @map("code_postal")
+ groupeSanguin          String?   @db.VarChar(5) @map("groupe_sanguin")
+ poids                  Decimal?  @db.Decimal(5, 2)
+ taille                 Int?
+ allergies              String?   @db.Text // Chiffré
+ antecedentsMedicaux    String?   @db.Text @map("antecedents_medicaux") // Chiffré
+ traitementsEnCours     String?   @db.Text @map("traitements_en_cours") // Chiffré
+ abonneContenuPro       Boolean   @default(false) @map("abonne_contenu_pro")
+
+ // Relations
+ user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ rendezVous RendezVous[]
+ ordonnances Ordonnance[]
+
+ @@index([userId])
+ @@index([ville])
+ @@map("patients")
+}
+
+model Medecin {
+ id                      String           @id @default(uuid())
+ userId                  String           @unique @map("user_id")
+ numeroOrdre             String           @unique @db.VarChar(50) @map("numero_ordre")
+ 
+ // Documents stockés avec file_path au lieu d'URLs
+ diplomes                Json?            // {file_path, nom_fichier, taille, mime_type, upload_date}
+ certifications          Json?            // {file_path, nom_fichier, taille, mime_type, upload_date}
+ 
+ // Validation simplifiée
+ dateValidation          DateTime?        @map("date_validation") @db.Date
+ valideParAdminId        String?          @map("valide_par_admin_id")
+ statutValidation        StatutValidation @default(EN_ATTENTE) @map("statut_validation")
+ motifRejet              String?          @db.Text @map("motif_rejet")
+ 
+ // Spécialités en JSON (remplace MedecinHasSpecialite)
+ specialites             Json?            // ["CARDIOLOGIE", "CHIRURGIE"]
+ 
+ // Clinique simplifiée (relation directe)
+ cliniqueId              String?          @map("clinique_id")
+ 
+ // Profil médecin
+ bio                     String?          @db.Text
+ experienceAnnees        Int?             @map("experience_annees")
+ languesParlees          Json?            @map("langues_parlees")
+ tarifConsultationBase   Decimal?         @db.Decimal(10, 2) @map("tarif_consultation_base")
+ accepteDomicile         Boolean          @default(false) @map("accepte_domicile")
+ accepteTeleconsultation Boolean          @default(false) @map("accepte_teleconsultation")
+ accepteclinique         Boolean          @default(true) @map("accepte_clinique")
+ noteMoyenne             Decimal          @default(0) @db.Decimal(2, 1) @map("note_moyenne")
+ nombreEvaluations       Int              @default(0) @map("nombre_evaluations")
+
+ // Relations
+ user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ valideParAdmin User? @relation("MedecinValidation", fields: [valideParAdminId], references: [id])
+ clinique Clinique? @relation(fields: [cliniqueId], references: [id])
+ 
+ disponibilites Disponibilite[]
+ rendezVous RendezVous[]
+ ordonnances Ordonnance[]
+
+ @@index([userId])
+ @@index([statutValidation])
+ @@index([noteMoyenne])
+ @@index([cliniqueId])
+ @@map("medecins")
+}
+
+model Disponibilite {
+ id                   String           @id @default(uuid())
+ medecinId            String           @map("medecin_id")
+ jourSemaine          JourSemaine?     @map("jour_semaine")
+ heureDebut           String           @map("heure_debut")
+ heureFin             String           @map("heure_fin")
+ typeConsultation     TypeConsultation @map("type_consultation")
+ cliniqueId           String?          @map("clinique_id")
+ dureeCreneauMinutes  Int              @default(30) @map("duree_creneau_minutes")
+ recurrent            Boolean          @default(true)
+ dateSpecifique       DateTime?        @map("date_specifique") @db.Date
+ bloque               Boolean          @default(false)
+ motifBlocage         String?          @db.VarChar(255) @map("motif_blocage")
+
+ // Relations
+ medecin  Medecin   @relation(fields: [medecinId], references: [id], onDelete: Cascade)
+ clinique Clinique? @relation(fields: [cliniqueId], references: [id])
+ rendezVous RendezVous[]
+
+ @@index([medecinId])
+ @@index([jourSemaine])
+ @@index([dateSpecifique])
+ @@map("disponibilites")
+}
+
+model RendezVous {
+ id                      String           @id @default(uuid())
+ patientId               String           @map("patient_id")
+ medecinId               String           @map("medecin_id")
+ disponibiliteId         String?          @map("disponibilite_id")
+ statut                  StatutRendezVous @default(DEMANDE)
+ typeConsultation        TypeConsultation @map("type_consultation")
+ cliniqueId              String?          @map("clinique_id")
+ dateRendezVous          DateTime         @map("date_rendez_vous") @db.Date
+ heureDebut              String           @map("heure_debut")
+ heureFin                String           @map("heure_fin")
+ motifConsultation       String           @db.Text @map("motif_consultation")
+ symptomes               String?          @db.Text
+ niveauUrgence           NiveauUrgence    @default(NORMAL) @map("niveau_urgence")
+ adresseConsultation     String?          @db.Text @map("adresse_consultation")
+ latitudeDomicile        Decimal?         @db.Decimal(10, 8) @map("latitude_domicile")
+ longitudeDomicile       Decimal?         @db.Decimal(11, 8) @map("longitude_domicile")
+ tarif                   Decimal?         @db.Decimal(10, 2)
+ notesMedecin            String?          @db.Text @map("notes_medecin")
+ createdAt               DateTime         @default(now()) @map("created_at")
+ updatedAt               DateTime         @updatedAt @map("updated_at")
+
+ // Relations
+ patient       Patient        @relation(fields: [patientId], references: [id])
+ medecin       Medecin        @relation(fields: [medecinId], references: [id])
+ disponibilite Disponibilite? @relation(fields: [disponibiliteId], references: [id])
+ clinique      Clinique?      @relation(fields: [cliniqueId], references: [id])
+ 
+ historique    RendezVousHistorique[]
+ consultation  Consultation[]
+ evaluations   Evaluation[] @relation("EvaluationRendezVous")
+
+ @@index([patientId])
+ @@index([medecinId])
+ @@index([dateRendezVous])
+ @@index([statut])
+ @@map("rendez_vous")
+}
+
+model RendezVousHistorique {
+ id                 String           @id @default(uuid())
+ rendezVousId       String           @map("rendez_vous_id")
+ statutPrecedent    StatutRendezVous? @map("statut_precedent")
+ nouveauStatut      StatutRendezVous? @map("nouveau_statut")
+ modifieParUserId   String           @map("modifie_par_user_id")
+ motifModification  String?          @db.Text @map("motif_modification")
+ dateModification   DateTime         @default(now()) @map("date_modification")
+
+ // Relations
+ rendezVous      RendezVous @relation(fields: [rendezVousId], references: [id])
+ modifieParUser  User       @relation("RendezVousModification", fields: [modifieParUserId], references: [id])
+
+ @@index([rendezVousId])
+ @@index([dateModification])
+ @@map("rendez_vous_historique")
+}
+
+model Consultation {
+ id                        String    @id @default(uuid())
+ rendezVousId              String    @unique @map("rendez_vous_id")
+ dateConsultation          DateTime  @map("date_consultation")
+ dureeMinutes              Int?      @map("duree_minutes")
+ diagnostic                String?   @db.Text // Chiffré
+ notesConsultation         String?   @db.Text @map("notes_consultation") // Chiffré
+ examensEffectues          String?   @db.Text @map("examens_effectues") // Chiffré
+ examensPrescrits          String?   @db.Text @map("examens_prescrits") // Chiffré
+ suiviNecessaire           Boolean   @default(false) @map("suivi_necessaire")
+ prochaineConsultationPrevue DateTime? @map("prochaine_consultation_prevue") @db.Date
+ 
+ // Documents avec file_path au lieu d'URLs
+ documentsJoints           Json?     @map("documents_joints") // {file_path, nom_fichier, taille, mime_type, upload_date}
+ 
+ createdAt                 DateTime  @default(now()) @map("created_at")
+
+ // Relations
+ rendezVous RendezVous @relation(fields: [rendezVousId], references: [id])
+ ordonnances Ordonnance[]
+
+ @@index([dateConsultation])
+ @@map("consultations")
+}
+
+model Ordonnance {
+ id                   String    @id @default(uuid())
+ consultationId       String    @map("consultation_id")
+ medecinId            String    @map("medecin_id")
+ patientId            String    @map("patient_id")
+ contenuOrdonnance    String    @db.Text @map("contenu_ordonnance") // Chiffré
+ medicaments          Json?     // Chiffré
+ posologie            Json?     // Chiffré
+ dureeTraitement      Json?     @map("duree_traitement")
+ instructionsSpeciales String?  @db.Text @map("instructions_speciales")
+ dateCreation         DateTime  @default(now()) @map("date_creation")
+ dateExpiration       DateTime? @map("date_expiration") @db.Date
+ numeroOrdonnance     String    @unique @db.VarChar(50) @map("numero_ordonnance")
+ signatureNumerique   String?   @db.Text @map("signature_numerique") // Hash de l'ordonnance
+ archivee             Boolean   @default(false)
+
+ // Relations
+ consultation Consultation @relation(fields: [consultationId], references: [id])
+ medecin      Medecin      @relation(fields: [medecinId], references: [id])
+ patient      Patient      @relation(fields: [patientId], references: [id])
+
+ @@index([patientId])
+ @@index([medecinId])
+ @@index([numeroOrdonnance])
+ @@map("ordonnances")
+}
+
+model Evaluation {
+ id               String         @id @default(uuid())
+ evaluateurUserId String         @map("evaluateur_user_id")
+ evalueUserId     String         @map("evalue_user_id")
+ rendezVousId     String         @map("rendez_vous_id")
+ typeEvaluation   TypeEvaluation @map("type_evaluation")
+ note             Int            // CHECK (note >= 1 AND note <= 5)
+ commentaire      String?        @db.Text
+ aspectsEvalues   Json?          @map("aspects_evalues") // {ponctualite: 5, professionnalisme: 4, etc.}
+ visible          Boolean        @default(true)
+ signale          Boolean        @default(false)
+ dateEvaluation   DateTime       @default(now()) @map("date_evaluation")
+
+ // Relations
+ evaluateur User       @relation("EvaluateurRelation", fields: [evaluateurUserId], references: [id])
+ evalue     User       @relation("EvalueRelation", fields: [evalueUserId], references: [id])
+ rendezVous RendezVous @relation("EvaluationRendezVous", fields: [rendezVousId], references: [id])
+
+ @@unique([evaluateurUserId, rendezVousId], name: "unique_evaluation")
+ @@index([evalueUserId])
+ @@index([dateEvaluation])
+ @@map("evaluations")
+}
+
+model TicketSupport {
+ id                   String          @id @default(uuid())
+ userId               String          @map("user_id")
+ categorie            CategorieTicket
+ priorite             PrioriteTicket  @default(NORMALE)
+ sujet                String          @db.VarChar(255)
+ description          String          @db.Text
+ statut               StatutTicket    @default(OUVERT)
+ assigneAAdminId      String?         @map("assigne_a_admin_id")
+ resolution           String?         @db.Text
+ dateResolution       DateTime?       @map("date_resolution")
+ satisfactionClient   Int?            @map("satisfaction_client") // CHECK (satisfaction_client >= 1 AND satisfaction_client <= 5)
+ 
+ // Pièces jointes avec file_path au lieu d'URLs
+ piecesJointes        Json?           @map("pieces_jointes") // {file_path, nom_fichier, taille, mime_type, upload_date}
+ 
+ createdAt            DateTime        @default(now()) @map("created_at")
+ updatedAt            DateTime        @updatedAt @map("updated_at")
+
+ // Relations
+ user            User  @relation("TicketUser", fields: [userId], references: [id])
+ assigneAAdmin   User? @relation("TicketAdmin", fields: [assigneAAdminId], references: [id])
+
+ @@index([userId])
+ @@index([statut])
+ @@index([priorite])
+ @@map("tickets_support")
+}
+
+model Notification {
+ id                      String               @id @default(uuid())
+ userId                  String               @map("user_id")
+ typeNotification        TypeNotification     @map("type_notification")
+ titre                   String               @db.VarChar(255)
+ message                 String               @db.Text
+ canal                   CanalNotification
+ statut                  StatutNotification   @default(EN_ATTENTE)
+ priorite                PrioriteNotification @default(NORMALE)
+ donneesSupplementaires  Json?                @map("donnees_supplementaires")
+ dateEnvoiPrevue         DateTime?            @map("date_envoi_prevue")
+ dateEnvoiReel           DateTime?            @map("date_envoi_reel")
+ dateLecture             DateTime?            @map("date_lecture")
+ tentativesEnvoi         Int                  @default(0) @map("tentatives_envoi")
+ createdAt               DateTime             @default(now()) @map("created_at")
+
+ // Relations
+ user User @relation("NotificationUser", fields: [userId], references: [id])
+
+ @@index([userId])
+ @@index([statut])
+ @@index([dateEnvoiPrevue])
+ @@map("notifications")
+}
