@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": ["Bash(git :*)", "Bash(npm :*)"],
+    "deny": ["Bash(curl:*)"]
+  },
+  "includeCoAuthoredBy": false
+}
