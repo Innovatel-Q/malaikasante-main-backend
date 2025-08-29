@@ -10,8 +10,8 @@ class Consts {
     // Configuration des ports par environnement
     static PORT_SYSTEM = {
         development: process.env.PORT || 3000,
-        test: process.env.TEST_PORT || 3001,
-        production: process.env.PROD_PORT || 8080
+        test: process.env.TEST_PORT || 3015,
+        production: process.env.PROD_PORT || 5005
     };
 
     // JWT Secret selon l'environnement
