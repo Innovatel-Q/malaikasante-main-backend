@@ -14,7 +14,7 @@ const getServers = () => {
             break;
         case 'test':
             servers.push({
-                url: process.env.TEST_API_URL || 'http://localhost:3001',
+                url: process.env.TEST_API_URL || 'https://api.malaikasante.com',
                 description: 'Serveur de test'
             });
             break;
