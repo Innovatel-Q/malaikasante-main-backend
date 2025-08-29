@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'medecins-patients-dev',
+      name: 'malaika-dev',
       script: './bin/www',
       env: {
         NODE_ENV: 'development',
@@ -9,7 +9,7 @@ module.exports = {
       }
     },
     {
-      name: 'medecins-patients-test',
+      name: 'malaika-test',
       script: './bin/www',
       env: {
         NODE_ENV: 'test',
@@ -17,7 +17,7 @@ module.exports = {
       }
     },
     {
-      name: 'medecins-patients-prod',
+      name: 'malaika-prod',
       script: './bin/www',
       env: {
         NODE_ENV: 'production',
