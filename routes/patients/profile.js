@@ -5,6 +5,240 @@ const ApiResponse = require('../../services/ApiResponse');
 const AuthMiddleware = require('../../middleware/authMiddleware');
 const BodyFilter = require('../../middleware/bodyFilterMiddleware');
 
+/**
+ * GET /patients/profile - Récupérer le profil complet du patient
+ */
+router.get('/',
+    AuthMiddleware.authenticate(),
+    AuthMiddleware.authorize(['PATIENT']),
+    async (req, res) => {
+        try {
+            const user = req.user;
+            const clientIp = req.ip || req.connection.remoteAddress;
+
+            console.log(`📖 Consultation profil patient: ${user.prenom} ${user.nom} - IP: ${clientIp}`);
+
+            // Récupération du profil complet avec relations
+            const profilComplet = await prisma.user.findUnique({
+                where: { id: user.id },
+                select: {
+                    id: true,
+                    email: true,
+                    telephone: true,
+                    nom: true,
+                    prenom: true,
+                    role: true,
+                    statut: true,
+                    canalCommunicationPrefere: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    patient: {
+                        select: {
+                            id: true,
+                            dateNaissance: true,
+                            sexe: true,
+                            adresse: true,
+                            ville: true,
+                            codePostal: true,
+                            groupeSanguin: true,
+                            poids: true,
+                            taille: true,
+                            allergies: true,
+                            antecedentsMedicaux: true,
+                            traitementsEnCours: true,
+                            abonneContenuPro: true,
+                            contactUrgence: true,
+                            professionOccupation: true,
+                            assuranceMedicale: true,
+                            numeroAssurance: true
+                        }
+                    }
+                }
+            });
+
+            if (!profilComplet || !profilComplet.patient) {
+                return ApiResponse.notFound(res, 'Profil patient non trouvé');
+            }
+
+            // Calculs supplémentaires
+            let calculsDerives = {};
+
+            // Calcul de l'âge si date de naissance disponible
+            if (profilComplet.patient.dateNaissance) {
+                const aujourd_hui = new Date();
+                const dateNaissance = new Date(profilComplet.patient.dateNaissance);
+                const age = Math.floor((aujourd_hui - dateNaissance) / (365.25 * 24 * 60 * 60 * 1000));
+                calculsDerives.age = age;
+            }
+
+            // Calcul de l'IMC si poids et taille disponibles
+            if (profilComplet.patient.poids && profilComplet.patient.taille) {
+                const imc = profilComplet.patient.poids / Math.pow(profilComplet.patient.taille / 100, 2);
+                calculsDerives.imc = Math.round(imc * 10) / 10;
+                
+                // Classification IMC
+                if (imc < 18.5) {
+                    calculsDerives.classificationIMC = 'Insuffisance pondérale';
+                } else if (imc < 25) {
+                    calculsDerives.classificationIMC = 'Poids normal';
+                } else if (imc < 30) {
+                    calculsDerives.classificationIMC = 'Surpoids';
+                } else {
+                    calculsDerives.classificationIMC = 'Obésité';
+                }
+            }
+
+            // Statistiques du compte
+            const [nombreRendezVous, dernierRendezVous] = await Promise.all([
+                prisma.rendezVous.count({
+                    where: { patientId: profilComplet.patient.id }
+                }),
+                prisma.rendezVous.findFirst({
+                    where: { patientId: profilComplet.patient.id },
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        medecin: {
+                            include: {
+                                user: {
+                                    select: { nom: true, prenom: true }
+                                }
+                            }
+                        }
+                    }
+                })
+            ]);
+
+            const statistiquesCompte = {
+                ancienneteCompte: Math.floor((new Date() - new Date(profilComplet.createdAt)) / (1000 * 60 * 60 * 24)),
+                nombreRendezVous,
+                dernierRendezVous: dernierRendezVous ? {
+                    date: dernierRendezVous.dateHeureDebut,
+                    medecin: `${dernierRendezVous.medecin.user.prenom} ${dernierRendezVous.medecin.user.nom}`,
+                    statut: dernierRendezVous.statut
+                } : null,
+                derniereMiseAJour: profilComplet.updatedAt
+            };
+
+            // Préparation de la réponse
+            const responseData = {
+                // Informations utilisateur de base
+                utilisateur: {
+                    id: profilComplet.id,
+                    email: profilComplet.email,
+                    telephone: profilComplet.telephone,
+                    nom: profilComplet.nom,
+                    prenom: profilComplet.prenom,
+                    role: profilComplet.role,
+                    statut: profilComplet.statut,
+                    canalCommunicationPrefere: profilComplet.canalCommunicationPrefere,
+                    dateInscription: profilComplet.createdAt,
+                    derniereMiseAJour: profilComplet.updatedAt
+                },
+
+                // Informations patient spécifiques
+                patient: {
+                    id: profilComplet.patient.id,
+                    
+                    // Informations personnelles
+                    informationsPersonnelles: {
+                        dateNaissance: profilComplet.patient.dateNaissance,
+                        age: calculsDerives.age || null,
+                        sexe: profilComplet.patient.sexe,
+                        adresse: profilComplet.patient.adresse,
+                        ville: profilComplet.patient.ville,
+                        codePostal: profilComplet.patient.codePostal
+                    },
+
+                    // Informations médicales de base
+                    informationsMedicales: {
+                        groupeSanguin: profilComplet.patient.groupeSanguin,
+                        poids: profilComplet.patient.poids,
+                        taille: profilComplet.patient.taille,
+                        imc: calculsDerives.imc || null,
+                        classificationIMC: calculsDerives.classificationIMC || null
+                    },
+
+                    // Informations complémentaires
+                    informationsComplementaires: {
+                        contactUrgence: profilComplet.patient.contactUrgence,
+                        professionOccupation: profilComplet.patient.professionOccupation,
+                        assuranceMedicale: profilComplet.patient.assuranceMedicale,
+                        numeroAssurance: profilComplet.patient.numeroAssurance
+                    },
+
+                    // Préférences et abonnements
+                    preferences: {
+                        abonneContenuPro: profilComplet.patient.abonneContenuPro,
+                        canalCommunication: profilComplet.canalCommunicationPrefere
+                    }
+                },
+
+                // Statistiques du compte
+                statistiques: statistiquesCompte,
+
+                // Indicateurs de complétude du profil
+                completude: {
+                    score: 0,
+                    champsManquants: [],
+                    recommandations: []
+                }
+            };
+
+            // Calcul du score de complétude
+            const champsImportants = [
+                { champ: 'dateNaissance', valeur: profilComplet.patient.dateNaissance, poids: 15 },
+                { champ: 'sexe', valeur: profilComplet.patient.sexe, poids: 10 },
+                { champ: 'adresse', valeur: profilComplet.patient.adresse, poids: 10 },
+                { champ: 'ville', valeur: profilComplet.patient.ville, poids: 10 },
+                { champ: 'groupeSanguin', valeur: profilComplet.patient.groupeSanguin, poids: 10 },
+                { champ: 'contactUrgence', valeur: profilComplet.patient.contactUrgence, poids: 15 },
+                { champ: 'assuranceMedicale', valeur: profilComplet.patient.assuranceMedicale, poids: 10 },
+                { champ: 'poids', valeur: profilComplet.patient.poids, poids: 10 },
+                { champ: 'taille', valeur: profilComplet.patient.taille, poids: 10 }
+            ];
+
+            let scoreTotal = 0;
+            let poidsTotal = 0;
+
+            champsImportants.forEach(item => {
+                poidsTotal += item.poids;
+                if (item.valeur) {
+                    scoreTotal += item.poids;
+                } else {
+                    responseData.completude.champsManquants.push(item.champ);
+                }
+            });
+
+            responseData.completude.score = Math.round((scoreTotal / poidsTotal) * 100);
+
+            // Recommandations selon la complétude
+            if (responseData.completude.score < 70) {
+                responseData.completude.recommandations.push(
+                    'Complétez votre profil pour une meilleure prise en charge médicale'
+                );
+            }
+            if (!profilComplet.patient.contactUrgence) {
+                responseData.completude.recommandations.push(
+                    'Ajoutez un contact d\'urgence pour votre sécurité'
+                );
+            }
+            if (!profilComplet.patient.groupeSanguin) {
+                responseData.completude.recommandations.push(
+                    'Renseignez votre groupe sanguin'
+                );
+            }
+
+            console.log(`✅ Profil patient consulté: ${profilComplet.prenom} ${profilComplet.nom} - Complétude: ${responseData.completude.score}%`);
+
+            return ApiResponse.success(res, 'Profil patient récupéré avec succès', responseData);
+
+        } catch (error) {
+            console.error('❌ Erreur consultation profil patient:', error);
+            return ApiResponse.serverError(res, 'Erreur interne lors de la consultation du profil');
+        }
+    }
+);
+
 // Schéma de validation
 const updateProfileSchema = {
     fields: {

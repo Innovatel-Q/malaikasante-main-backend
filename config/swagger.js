@@ -41,16 +41,7 @@ const options = {
             }
         },
         servers: getServers(),
-        components: {
-            securitySchemes: {
-                bearerAuth: {
-                    type: 'http',
-                    scheme: 'bearer',
-                    bearerFormat: 'JWT',
-                    description: 'Token JWT obtenu lors de la connexion'
-                }
-            }
-        },
+        // Les composants sont définis dans swagger/components/common.yaml
         security: [
             {
                 bearerAuth: []

@@ -1,0 +1,275 @@
+openapi: 3.0.0
+paths:
+  /v1/doctors/search:
+    get:
+      tags:
+        - Doctors
+      summary: Recherche multicritères de médecins
+      description: |
+        Recherche avancée de médecins validés avec filtres multiples.
+        Permet de trouver des médecins selon la spécialité, localisation, tarifs, services proposés, etc.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: specialite
+          in: query
+          description: Spécialité médicale recherchée
+          schema:
+            type: string
+            example: "cardiologie"
+        - name: ville
+          in: query
+          description: Ville de consultation
+          schema:
+            type: string
+            example: "Abidjan"
+        - name: disponible
+          in: query
+          description: Filtrer uniquement les médecins disponibles
+          schema:
+            type: boolean
+            example: true
+        - name: tarifMin
+          in: query
+          description: Tarif minimum de consultation (XOF)
+          schema:
+            type: number
+            minimum: 0
+            example: 10000
+        - name: tarifMax
+          in: query
+          description: Tarif maximum de consultation (XOF)
+          schema:
+            type: number
+            minimum: 0
+            example: 50000
+        - name: noteMin
+          in: query
+          description: Note minimum (1-5)
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+            example: 4
+        - name: domicile
+          in: query
+          description: Propose des consultations à domicile
+          schema:
+            type: boolean
+            example: true
+        - name: teleconsultation
+          in: query
+          description: Propose des téléconsultations
+          schema:
+            type: boolean
+            example: true
+        - name: page
+          in: query
+          description: Numéro de la page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Nombre de résultats par page (max 50)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: sortBy
+          in: query
+          description: Champ de tri
+          schema:
+            type: string
+            enum: [note, nom, tarif, experience]
+            default: note
+        - name: sortOrder
+          in: query
+          description: Ordre de tri
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Recherche effectuée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Recherche effectuée avec succès"
+                  data:
+                    type: object
+                    properties:
+                      medecins:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MedecinRecherche'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+                      filters:
+                        type: object
+                        properties:
+                          specialite:
+                            type: string
+                            nullable: true
+                          ville:
+                            type: string
+                            nullable: true
+                          tarifMin:
+                            type: number
+                            nullable: true
+                          tarifMax:
+                            type: number
+                            nullable: true
+                          noteMin:
+                            type: number
+                            nullable: true
+                          domicile:
+                            type: boolean
+                          teleconsultation:
+                            type: boolean
+                          sortBy:
+                            type: string
+                          sortOrder:
+                            type: string
+                      statistics:
+                        type: object
+                        properties:
+                          totalMedecinsDisponibles:
+                            type: integer
+                          medecinAvecDomicile:
+                            type: integer
+                          medecinAvecTeleconsultation:
+                            type: integer
+                          noteMoyenneMoyenne:
+                            type: number
+                            nullable: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    MedecinRecherche:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            nom:
+              type: string
+              example: "KOUAME"
+            prenom:
+              type: string
+              example: "Jean-Baptiste"
+            email:
+              type: string
+              format: email
+              example: "jb.kouame@email.com"
+            telephone:
+              type: string
+              example: "0708123456"
+        specialitePrincipale:
+          type: string
+          example: "Cardiologie"
+        specialitesSecondaires:
+          type: array
+          items:
+            type: string
+          example: ["Médecine interne", "Échographie cardiaque"]
+        experienceAnnees:
+          type: integer
+          example: 15
+        noteMoyenne:
+          type: number
+          format: float
+          example: 4.2
+          nullable: true
+        nombreEvaluations:
+          type: integer
+          example: 127
+        consultations:
+          type: object
+          properties:
+            clinique:
+              type: object
+              properties:
+                disponible:
+                  type: boolean
+                  example: true
+                tarif:
+                  type: number
+                  example: 25000
+                adresse:
+                  type: string
+                  example: "123 Avenue de la République"
+                ville:
+                  type: string
+                  example: "Abidjan"
+            domicile:
+              type: object
+              properties:
+                disponible:
+                  type: boolean
+                  example: true
+                tarif:
+                  type: number
+                  example: 35000
+                rayonKm:
+                  type: integer
+                  example: 15
+            teleconsultation:
+              type: object
+              properties:
+                disponible:
+                  type: boolean
+                  example: true
+                tarif:
+                  type: number
+                  example: 20000
+        disponible:
+          type: boolean
+          example: true
+        prochainCreneauDisponible:
+          type: string
+          format: date-time
+          nullable: true
+        numeroOrdre:
+          type: string
+          example: "CI-MED-12345"
+        biographie:
+          type: string
+          example: "Cardiologue expérimenté spécialisé dans les pathologies cardiovasculaires..."
+        languessParlees:
+          type: array
+          items:
+            type: string
+          example: ["Français", "Anglais", "Baoulé"]
+        certifie:
+          type: boolean
+          example: true
+        photoProfile:
+          type: string
+          nullable: true
+          example: "/uploads/profiles/medecin123.jpg"
+        photoCabinet:
+          type: string
+          nullable: true
+          example: "/uploads/cabinets/cabinet123.jpg"

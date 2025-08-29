@@ -1,0 +1,287 @@
+openapi: 3.0.0
+paths:
+  /v1/appointments/{id}/respond:
+    put:
+      tags:
+        - Appointments
+      summary: Réponse du médecin à une demande de RDV
+      description: |
+        Permet au médecin de répondre à une demande de rendez-vous : accepter ou refuser.
+        En cas de refus, peut proposer des créneaux alternatifs.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du rendez-vous
+          schema:
+            type: string
+            format: uuid
+            example: "456e7890-e89b-12d3-a456-426614174000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  enum: [ACCEPTER, REFUSER]
+                  description: Décision du médecin
+                  example: "ACCEPTER"
+                motifRefus:
+                  type: string
+                  maxLength: 1000
+                  description: Motif de refus (obligatoire si refus)
+                  example: "Planning complet cette semaine"
+                creneauxAlternatifs:
+                  type: array
+                  maxItems: 5
+                  description: Créneaux alternatifs proposés (en cas de refus)
+                  items:
+                    type: object
+                    properties:
+                      dateHeureDebut:
+                        type: string
+                        format: date-time
+                        example: "2024-02-16T14:00:00.000Z"
+                      typeConsultation:
+                        type: string
+                        enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+                        example: "CLINIQUE"
+                    required:
+                      - dateHeureDebut
+                  example:
+                    - dateHeureDebut: "2024-02-16T14:00:00.000Z"
+                      typeConsultation: "CLINIQUE"
+                    - dateHeureDebut: "2024-02-17T09:00:00.000Z"
+                      typeConsultation: "CLINIQUE"
+                messagePersonnalise:
+                  type: string
+                  maxLength: 500
+                  description: Message personnalisé pour le patient
+                  example: "J'ai hâte de vous rencontrer pour votre suivi"
+                modificationsTarif:
+                  type: object
+                  description: Modifications de tarif (si nécessaire)
+                  properties:
+                    nouveau_tarif:
+                      type: number
+                      minimum: 0
+                      example: 30000
+                    motif_modification:
+                      type: string
+                      maxLength: 200
+                      example: "Consultation complexe nécessitant plus de temps"
+              required:
+                - decision
+            examples:
+              acceptation:
+                summary: Acceptation de rendez-vous
+                value:
+                  decision: "ACCEPTER"
+                  messagePersonnalise: "J'ai bien reçu votre demande. À bientôt !"
+              refus_avec_alternatives:
+                summary: Refus avec créneaux alternatifs
+                value:
+                  decision: "REFUSER"
+                  motifRefus: "Planning complet cette semaine"
+                  creneauxAlternatifs:
+                    - dateHeureDebut: "2024-02-16T14:00:00.000Z"
+                      typeConsultation: "CLINIQUE"
+                    - dateHeureDebut: "2024-02-17T09:00:00.000Z"
+                      typeConsultation: "CLINIQUE"
+                  messagePersonnalise: "Voici d'autres créneaux disponibles"
+      responses:
+        '200':
+          description: Réponse enregistrée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Rendez-vous confirmé avec succès"
+                  data:
+                    $ref: '#/components/schemas/ReponseRendezVousResponse'
+        '400':
+          description: Données de réponse invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                motif_requis:
+                  summary: Motif de refus manquant
+                  value:
+                    success: false
+                    error: "MISSING_REFUSAL_REASON"
+                    message: "Motif de refus obligatoire"
+                creneau_indisponible:
+                  summary: Créneau alternatif indisponible
+                  value:
+                    success: false
+                    error: "ALTERNATIVE_SLOT_UNAVAILABLE"
+                    message: "Créneau alternatif du 2024-02-16 non disponible"
+                rdv_non_modifiable:
+                  summary: RDV non modifiable
+                  value:
+                    success: false
+                    error: "APPOINTMENT_NOT_MODIFIABLE"
+                    message: "Cette demande de rendez-vous ne peut plus être modifiée"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Non autorisé à répondre
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "UNAUTHORIZED_RESPONSE"
+                message: "Vous n'êtes pas autorisé à répondre à cette demande"
+        '404':
+          description: Rendez-vous non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "APPOINTMENT_NOT_FOUND"
+                message: "Rendez-vous non trouvé"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ReponseRendezVousResponse:
+      type: object
+      properties:
+        rendezVous:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "456e7890-e89b-12d3-a456-426614174000"
+            statut:
+              type: string
+              example: "CONFIRME"
+            dateHeureDebut:
+              type: string
+              format: date-time
+              example: "2024-02-15T10:00:00.000Z"
+            dateHeureFin:
+              type: string
+              format: date-time
+              example: "2024-02-15T10:30:00.000Z"
+            typeConsultation:
+              type: string
+              example: "CLINIQUE"
+            dateReponse:
+              type: string
+              format: date-time
+              example: "2024-02-10T14:30:00.000Z"
+            tarifPrevu:
+              type: number
+              example: 25000
+        patient:
+          type: object
+          properties:
+            nom:
+              type: string
+              example: "DIABATE"
+            prenom:
+              type: string
+              example: "Aminata"
+            telephone:
+              type: string
+              example: "0709876543"
+        decision:
+          type: string
+          example: "ACCEPTER"
+        details:
+          oneOf:
+            - $ref: '#/components/schemas/DetailsAcceptation'
+            - $ref: '#/components/schemas/DetailsRefus'
+
+    DetailsAcceptation:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Rendez-vous confirmé avec succès"
+        messagePersonnalise:
+          type: string
+          nullable: true
+          example: "J'ai hâte de vous rencontrer pour votre suivi"
+        modifications:
+          type: object
+          nullable: true
+          properties:
+            tarif:
+              type: number
+              example: 30000
+            motif:
+              type: string
+              example: "Consultation complexe nécessitant plus de temps"
+        prochaines_etapes:
+          type: array
+          items:
+            type: string
+          example:
+            - "Le patient a été notifié de la confirmation"
+            - "Le rendez-vous apparaît maintenant dans votre planning"
+            - "Vous pouvez contacter le patient au 0709876543"
+            - "Le patient peut annuler gratuitement jusqu'à 24h avant le RDV"
+
+    DetailsRefus:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Demande de rendez-vous refusée"
+        motifRefus:
+          type: string
+          example: "Planning complet cette semaine"
+        messagePersonnalise:
+          type: string
+          nullable: true
+          example: "Voici d'autres créneaux disponibles"
+        creneauxAlternatifs:
+          type: array
+          items:
+            type: object
+            properties:
+              dateHeureDebut:
+                type: string
+                format: date-time
+              typeConsultation:
+                type: string
+              date:
+                type: string
+                format: date
+              heure:
+                type: string
+          example:
+            - dateHeureDebut: "2024-02-16T14:00:00.000Z"
+              typeConsultation: "CLINIQUE"
+              date: "2024-02-16"
+              heure: "14:00"
+        prochaines_etapes:
+          type: array
+          items:
+            type: string
+          example:
+            - "Le patient a été notifié du refus"
+            - "Des créneaux alternatifs lui ont été proposés"
+            - "Le patient peut faire une nouvelle demande"
+            - "Votre planning reste inchangé"

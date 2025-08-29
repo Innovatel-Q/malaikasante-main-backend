@@ -9,6 +9,9 @@ const authController = require('../controllers/AuthController');
 const patientController = require('../controllers/PatientController');
 const medecinController = require('../controllers/MedecinController');
 const adminController = require('../controllers/AdminController');
+const doctorController = require('../controllers/DoctorController');
+const appointmentController = require('../controllers/AppointmentController');
+const evaluationController = require('../controllers/EvaluationController');
 
 
 /**
@@ -31,7 +34,11 @@ router.get('/info', (req, res) => {
                 info: '/v1/info',
                 auth: '/v1/auth/*',
                 patients: '/v1/patients/*',
-                medecins: '/v1/medecins/*'
+                medecins: '/v1/medecins/*',
+                doctors: '/v1/doctors/*',
+                appointments: '/v1/appointments/*',
+                evaluations: '/v1/evaluations/*',
+                admin: '/v1/admin/*'
             },
             features: {
                 authentication: 'JWT + OTP',
@@ -73,5 +80,8 @@ router.use('/auth', authController);
 router.use('/patients', patientController);
 router.use('/medecins', medecinController);
 router.use('/admin', adminController);
+router.use('/doctors', doctorController);
+router.use('/appointments', appointmentController);
+router.use('/evaluations', evaluationController);
 
 module.exports = router;

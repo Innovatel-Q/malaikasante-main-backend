@@ -1,0 +1,291 @@
+openapi: 3.0.0
+paths:
+  /v1/doctors/{id}/available-slots:
+    get:
+      tags:
+        - Doctors
+      summary: Créneaux disponibles d'un médecin
+      description: |
+        Récupère les créneaux de consultation disponibles d'un médecin pour une période donnée.
+        Prend en compte les rendez-vous existants, les congés, et les horaires de travail.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID unique du médecin
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: dateDebut
+          in: query
+          required: true
+          description: Date de début de recherche (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: "2024-02-01"
+        - name: dateFin
+          in: query
+          description: Date de fin de recherche (YYYY-MM-DD, max 30 jours après début)
+          schema:
+            type: string
+            format: date
+            example: "2024-02-07"
+        - name: typeConsultation
+          in: query
+          description: Type de consultation recherché
+          schema:
+            type: string
+            enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+            default: CLINIQUE
+        - name: dureeConsultation
+          in: query
+          description: Durée souhaitée en minutes
+          schema:
+            type: integer
+            minimum: 15
+            maximum: 120
+            default: 30
+            example: 30
+      responses:
+        '200':
+          description: Créneaux disponibles récupérés avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Créneaux disponibles récupérés avec succès"
+                  data:
+                    type: object
+                    properties:
+                      informationsConsultation:
+                        $ref: '#/components/schemas/InformationsConsultation'
+                      creneauxDisponibles:
+                        type: object
+                        additionalProperties:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/CreneauDisponible'
+                        example:
+                          "2024-02-01":
+                            - dateHeureDebut: "2024-02-01T08:00:00.000Z"
+                              dateHeureFin: "2024-02-01T08:30:00.000Z"
+                              jour: "JEUDI"
+                              date: "2024-02-01"
+                              heure: "08:00"
+                              dureeMinutes: 30
+                              typeConsultation: "CLINIQUE"
+                              tarif: 25000
+                              disponible: true
+                              urgence: false
+                          "2024-02-02":
+                            - dateHeureDebut: "2024-02-02T09:00:00.000Z"
+                              dateHeureFin: "2024-02-02T09:30:00.000Z"
+                              jour: "VENDREDI"
+                              date: "2024-02-02"
+                              heure: "09:00"
+                              dureeMinutes: 30
+                              typeConsultation: "CLINIQUE"
+                              tarif: 25000
+                              disponible: true
+                              urgence: false
+                      statistiques:
+                        $ref: '#/components/schemas/StatistiquesCreneaux'
+                      filtres:
+                        type: object
+                        properties:
+                          dateDebut:
+                            type: string
+                            format: date-time
+                          dateFin:
+                            type: string
+                            format: date-time
+                          typeConsultation:
+                            type: string
+                          dureeConsultation:
+                            type: integer
+        '400':
+          description: Paramètres de requête invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                date_passee:
+                  summary: Date dans le passé
+                  value:
+                    success: false
+                    error: "INVALID_DATE"
+                    message: "La date de début ne peut pas être dans le passé"
+                plage_trop_large:
+                  summary: Plage de dates trop large
+                  value:
+                    success: false
+                    error: "DATE_RANGE_TOO_LARGE"
+                    message: "La plage de dates ne peut pas dépasser 30 jours"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Médecin non trouvé ou non disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "MEDECIN_NOT_AVAILABLE"
+                message: "Médecin non trouvé ou non disponible pour de nouveaux patients"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    InformationsConsultation:
+      type: object
+      properties:
+        medecin:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            nom:
+              type: string
+              example: "KOUAME"
+            prenom:
+              type: string
+              example: "Jean-Baptiste"
+            specialite:
+              type: string
+              example: "Cardiologie"
+        typeConsultation:
+          type: string
+          enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+          example: "CLINIQUE"
+        tarif:
+          type: object
+          properties:
+            montant:
+              type: number
+              example: 25000
+            devise:
+              type: string
+              example: "XOF"
+            inclut:
+              type: string
+              example: "Consultation complète"
+        dureeConsultation:
+          type: integer
+          example: 30
+        conditions:
+          type: object
+          properties:
+            annulationGratuite:
+              type: string
+              example: "24h avant le RDV"
+            confirmationRequise:
+              type: boolean
+              example: true
+            delaiReponseMax:
+              type: string
+              example: "24h"
+
+    CreneauDisponible:
+      type: object
+      properties:
+        dateHeureDebut:
+          type: string
+          format: date-time
+          example: "2024-02-01T08:00:00.000Z"
+        dateHeureFin:
+          type: string
+          format: date-time
+          example: "2024-02-01T08:30:00.000Z"
+        jour:
+          type: string
+          enum: [LUNDI, MARDI, MERCREDI, JEUDI, VENDREDI, SAMEDI, DIMANCHE]
+          example: "JEUDI"
+        date:
+          type: string
+          format: date
+          example: "2024-02-01"
+        heure:
+          type: string
+          example: "08:00"
+        dureeMinutes:
+          type: integer
+          example: 30
+        typeConsultation:
+          type: string
+          enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+          example: "CLINIQUE"
+        tarif:
+          type: number
+          example: 25000
+        disponible:
+          type: boolean
+          example: true
+        urgence:
+          type: boolean
+          example: false
+
+    StatistiquesCreneaux:
+      type: object
+      properties:
+        totalCreneaux:
+          type: integer
+          example: 42
+        periodeAnalysee:
+          type: object
+          properties:
+            debut:
+              type: string
+              format: date-time
+            fin:
+              type: string
+              format: date-time
+            nombreJours:
+              type: integer
+              example: 7
+        repartitionParJour:
+          type: object
+          properties:
+            LUNDI:
+              type: integer
+              example: 6
+            MARDI:
+              type: integer
+              example: 8
+            MERCREDI:
+              type: integer
+              example: 6
+            JEUDI:
+              type: integer
+              example: 8
+            VENDREDI:
+              type: integer
+              example: 6
+            SAMEDI:
+              type: integer
+              example: 4
+            DIMANCHE:
+              type: integer
+              example: 4
+        prochainCreneauDisponible:
+          $ref: '#/components/schemas/CreneauDisponible'
+          nullable: true
+        moyenneCreneauxParJour:
+          type: number
+          format: float
+          example: 6.0

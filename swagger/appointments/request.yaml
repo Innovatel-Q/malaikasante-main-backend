@@ -1,0 +1,221 @@
+openapi: 3.0.0
+paths:
+  /v1/appointments/request:
+    post:
+      tags:
+        - Appointments
+      summary: Demander un rendez-vous
+      description: |
+        Permet à un patient de demander un rendez-vous auprès d'un médecin validé.
+        Le médecin recevra une notification et devra accepter ou refuser la demande.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                medecinId:
+                  type: string
+                  format: uuid
+                  description: ID du médecin sollicité
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                dateHeureDebut:
+                  type: string
+                  format: date-time
+                  description: Date et heure souhaitées pour le rendez-vous
+                  example: "2024-02-15T10:00:00.000Z"
+                typeConsultation:
+                  type: string
+                  enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+                  description: Type de consultation demandé
+                  example: "CLINIQUE"
+                motifConsultation:
+                  type: string
+                  minLength: 10
+                  maxLength: 1000
+                  description: Motif détaillé de la consultation
+                  example: "Douleurs thoraciques depuis 3 jours, essoufflement à l'effort"
+                niveauUrgence:
+                  type: string
+                  enum: [URGENT, NORMAL, SUIVI_ROUTINE]
+                  description: Niveau d'urgence de la consultation
+                  example: "NORMAL"
+                dureeEstimee:
+                  type: integer
+                  minimum: 15
+                  maximum: 120
+                  description: Durée estimée en minutes
+                  example: 30
+                adressePatient:
+                  type: string
+                  maxLength: 500
+                  description: Adresse du patient (obligatoire pour consultation à domicile)
+                  example: "123 Rue des Roses, Marcory, Abidjan"
+                informationsComplementaires:
+                  type: string
+                  maxLength: 1000
+                  description: Informations complémentaires pour le médecin
+                  example: "Patient hypertendu sous traitement"
+              required:
+                - medecinId
+                - dateHeureDebut
+                - typeConsultation
+                - motifConsultation
+            example:
+              medecinId: "123e4567-e89b-12d3-a456-426614174000"
+              dateHeureDebut: "2024-02-15T10:00:00.000Z"
+              typeConsultation: "CLINIQUE"
+              motifConsultation: "Contrôle de routine pour hypertension artérielle"
+              niveauUrgence: "NORMAL"
+              dureeEstimee: 30
+              informationsComplementaires: "Patient sous traitement depuis 2 ans"
+      responses:
+        '200':
+          description: Demande de rendez-vous envoyée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Demande de rendez-vous envoyée avec succès"
+                  data:
+                    $ref: '#/components/schemas/DemandeRendezVousResponse'
+        '400':
+          description: Données de demande invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                date_passee:
+                  summary: Date dans le passé
+                  value:
+                    success: false
+                    error: "INVALID_DATE"
+                    message: "La date du rendez-vous doit être dans le futur"
+                creneau_indisponible:
+                  summary: Créneau indisponible
+                  value:
+                    success: false
+                    error: "SLOT_UNAVAILABLE"
+                    message: "Ce créneau n'est plus disponible"
+                profil_incomplet:
+                  summary: Profil patient incomplet
+                  value:
+                    success: false
+                    error: "INCOMPLETE_PROFILE"
+                    message: "Profil patient incomplet. Veuillez compléter votre profil avant de prendre rendez-vous"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Médecin non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "MEDECIN_NOT_FOUND"
+                message: "Médecin non trouvé ou non disponible pour de nouveaux patients"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    DemandeRendezVousResponse:
+      type: object
+      properties:
+        rendezVous:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "456e7890-e89b-12d3-a456-426614174000"
+            dateHeureDebut:
+              type: string
+              format: date-time
+              example: "2024-02-15T10:00:00.000Z"
+            dateHeureFin:
+              type: string
+              format: date-time
+              example: "2024-02-15T10:30:00.000Z"
+            typeConsultation:
+              type: string
+              example: "CLINIQUE"
+            statut:
+              type: string
+              example: "DEMANDE"
+            motifConsultation:
+              type: string
+              example: "Contrôle de routine pour hypertension artérielle"
+            niveauUrgence:
+              type: string
+              example: "NORMAL"
+            tarifPrevu:
+              type: number
+              example: 25000
+            adresseConsultation:
+              type: string
+              example: "123 Avenue de la République, Plateau"
+        medecin:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            nom:
+              type: string
+              example: "KOUAME"
+            prenom:
+              type: string
+              example: "Jean-Baptiste"
+            specialite:
+              type: string
+              example: "Cardiologie"
+        patient:
+          type: object
+          properties:
+            nom:
+              type: string
+              example: "DIABATE"
+            prenom:
+              type: string
+              example: "Aminata"
+            telephone:
+              type: string
+              example: "0709876543"
+        prochaines_etapes:
+          type: array
+          items:
+            type: string
+          example:
+            - "Votre demande de rendez-vous a été envoyée au médecin"
+            - "Le Dr KOUAME recevra une notification et répondra dans les 24h"
+            - "Vous recevrez une notification de sa réponse par email"
+            - "En cas d'urgence, contactez directement le médecin au 0708123456"
+        delaiReponse:
+          type: string
+          example: "24h"
+        annulation:
+          type: object
+          properties:
+            possible:
+              type: boolean
+              example: true
+            gratuite:
+              type: boolean
+              example: true
+            limite:
+              type: string
+              example: "24h avant le RDV"

@@ -1,0 +1,224 @@
+openapi: 3.0.0
+paths:
+  /v1/appointments/{id}/cancel:
+    delete:
+      tags:
+        - Appointments
+      summary: Annuler un rendez-vous
+      description: |
+        Permet l'annulation d'un rendez-vous par le patient ou le médecin.
+        Les frais d'annulation dépendent du délai d'annulation.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du rendez-vous à annuler
+          schema:
+            type: string
+            format: uuid
+            example: "456e7890-e89b-12d3-a456-426614174000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motifAnnulation:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+                  description: Motif obligatoire de l'annulation
+                  example: "Imprévu professionnel urgent"
+                demandeRemboursement:
+                  type: boolean
+                  description: Demander un remboursement si éligible
+                  example: false
+              required:
+                - motifAnnulation
+            example:
+              motifAnnulation: "Problème de santé empêchant le déplacement"
+              demandeRemboursement: true
+      responses:
+        '200':
+          description: Rendez-vous annulé avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Rendez-vous annulé avec succès (sans frais)"
+                  data:
+                    $ref: '#/components/schemas/AnnulationRendezVousResponse'
+        '400':
+          description: Annulation impossible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rdv_passe:
+                  summary: Rendez-vous passé
+                  value:
+                    success: false
+                    error: "PAST_APPOINTMENT"
+                    message: "Impossible d'annuler un rendez-vous passé"
+                statut_invalide:
+                  summary: Statut ne permettant pas l'annulation
+                  value:
+                    success: false
+                    error: "INVALID_STATUS"
+                    message: "Impossible d'annuler un rendez-vous avec le statut: TERMINE"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Non autorisé à annuler ce rendez-vous
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "UNAUTHORIZED_CANCELLATION"
+                message: "Vous n'êtes pas autorisé à annuler ce rendez-vous"
+        '404':
+          description: Rendez-vous non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "APPOINTMENT_NOT_FOUND"
+                message: "Rendez-vous non trouvé"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    AnnulationRendezVousResponse:
+      type: object
+      properties:
+        rendezVous:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "456e7890-e89b-12d3-a456-426614174000"
+            statut:
+              type: string
+              example: "ANNULE"
+            dateHeureDebut:
+              type: string
+              format: date-time
+              example: "2024-02-15T10:00:00.000Z"
+            dateAnnulation:
+              type: string
+              format: date-time
+              example: "2024-02-10T16:45:00.000Z"
+            motifAnnulation:
+              type: string
+              example: "Problème de santé empêchant le déplacement"
+            annulePar:
+              type: string
+              example: "PATIENT"
+        annulation:
+          type: object
+          properties:
+            gratuite:
+              type: boolean
+              example: true
+            frais:
+              type: number
+              example: 0
+            delaiAnnulation:
+              type: string
+              example: "5 jour(s)"
+            messageDelai:
+              type: string
+              example: "Annulation gratuite (plus de 24h à l'avance)"
+            tarifOriginal:
+              type: number
+              example: 25000
+        partenaire:
+          oneOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  example: "medecin"
+                nom:
+                  type: string
+                  example: "KOUAME"
+                prenom:
+                  type: string
+                  example: "Jean-Baptiste"
+                specialite:
+                  type: string
+                  example: "Cardiologie"
+            - type: object
+              properties:
+                type:
+                  type: string
+                  example: "patient"
+                nom:
+                  type: string
+                  example: "DIABATE"
+                prenom:
+                  type: string
+                  example: "Aminata"
+        remboursement:
+          oneOf:
+            - type: object
+              properties:
+                demande:
+                  type: boolean
+                  example: true
+                montant:
+                  type: number
+                  example: 25000
+                statut:
+                  type: string
+                  example: "EN_ATTENTE"
+                delaiTraitement:
+                  type: string
+                  example: "3-5 jours ouvrés"
+            - type: object
+              properties:
+                demande:
+                  type: boolean
+                  example: false
+                raison:
+                  type: string
+                  example: "Annulation tardive avec frais"
+        consequences:
+          type: object
+          properties:
+            creneauLibere:
+              type: boolean
+              example: true
+            notification_envoyee:
+              type: boolean
+              example: true
+            planning_mis_a_jour:
+              type: boolean
+              example: true
+            historique_conserve:
+              type: boolean
+              example: true
+        actions_possibles:
+          type: array
+          items:
+            type: string
+          example:
+            - "Reprendre rendez-vous avec le même médecin"
+            - "Chercher un nouveau médecin"
+            - "Consulter les créneaux disponibles"

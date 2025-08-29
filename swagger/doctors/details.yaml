@@ -1,0 +1,349 @@
+openapi: 3.0.0
+paths:
+  /v1/doctors/{id}/details:
+    get:
+      tags:
+        - Doctors
+      summary: Profil détaillé d'un médecin
+      description: |
+        Récupère le profil complet et détaillé d'un médecin validé.
+        Inclut les informations professionnelles, formation, évaluations, statistiques d'activité.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID unique du médecin
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Profil médecin récupéré avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Profil médecin récupéré avec succès"
+                  data:
+                    $ref: '#/components/schemas/MedecinDetailComplet'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Médecin non trouvé ou non disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "MEDECIN_NOT_FOUND"
+                message: "Médecin non trouvé ou non disponible"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    MedecinDetailComplet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        informationsPersonnelles:
+          type: object
+          properties:
+            nom:
+              type: string
+              example: "KOUAME"
+            prenom:
+              type: string
+              example: "Jean-Baptiste"
+            email:
+              type: string
+              format: email
+              example: "jb.kouame@email.com"
+            telephone:
+              type: string
+              example: "0708123456"
+        informationsProfessionnelles:
+          type: object
+          properties:
+            numeroOrdre:
+              type: string
+              example: "CI-MED-12345"
+            specialitePrincipale:
+              type: string
+              example: "Cardiologie"
+            specialitesSecondaires:
+              type: array
+              items:
+                type: object
+                properties:
+                  nom:
+                    type: string
+                    example: "Échographie cardiaque"
+                  certifie:
+                    type: boolean
+                    example: true
+                  experienceAnnees:
+                    type: integer
+                    example: 8
+            biographie:
+              type: string
+              example: "Cardiologue expérimenté avec 15 ans de pratique..."
+            experienceAnnees:
+              type: integer
+              example: 15
+            inscriptionPlateforme:
+              type: integer
+              example: 2
+            languesParlees:
+              type: array
+              items:
+                type: string
+              example: ["Français", "Anglais", "Baoulé"]
+        formation:
+          type: object
+          properties:
+            diplomes:
+              type: array
+              items:
+                type: object
+                properties:
+                  institution:
+                    type: string
+                    example: "Université Félix Houphouët-Boigny"
+                  diplome:
+                    type: string
+                    example: "Doctorat en Médecine"
+                  specialite:
+                    type: string
+                    example: "Cardiologie"
+                  anneeObtention:
+                    type: integer
+                    example: 2008
+                  pays:
+                    type: string
+                    example: "Côte d'Ivoire"
+            certifications:
+              type: array
+              items:
+                type: object
+                properties:
+                  nom:
+                    type: string
+                    example: "Certification Échographie Cardiaque"
+                  organisme:
+                    type: string
+                    example: "Société Ivoirienne de Cardiologie"
+                  dateObtention:
+                    type: string
+                    format: date
+                    example: "2010-06-15"
+                  dateExpiration:
+                    type: string
+                    format: date
+                    nullable: true
+                    example: "2025-06-15"
+        consultations:
+          type: object
+          properties:
+            clinique:
+              type: object
+              properties:
+                disponible:
+                  type: boolean
+                  example: true
+                tarif:
+                  type: number
+                  example: 25000
+                adresse:
+                  type: string
+                  example: "123 Avenue de la République, Plateau"
+                ville:
+                  type: string
+                  example: "Abidjan"
+                codePostal:
+                  type: string
+                  example: "00225"
+                informationsAcces:
+                  type: string
+                  example: "2ème étage, ascenseur disponible"
+            domicile:
+              type: object
+              properties:
+                disponible:
+                  type: boolean
+                  example: true
+                tarif:
+                  type: number
+                  example: 35000
+                rayonKm:
+                  type: integer
+                  example: 15
+                fraisDeplacementParKm:
+                  type: number
+                  example: 500
+            teleconsultation:
+              type: object
+              properties:
+                disponible:
+                  type: boolean
+                  example: true
+                tarif:
+                  type: number
+                  example: 20000
+                plateformesUtilisees:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Zoom", "Google Meet"]
+        horaires:
+          type: object
+          properties:
+            LUNDI:
+              type: array
+              items:
+                type: object
+                properties:
+                  heureDebut:
+                    type: string
+                    example: "08:00"
+                  heureFin:
+                    type: string
+                    example: "12:00"
+                  typeConsultation:
+                    type: string
+                    enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+                    example: "CLINIQUE"
+            MARDI:
+              type: array
+              items:
+                type: object
+                properties:
+                  heureDebut:
+                    type: string
+                  heureFin:
+                    type: string
+                  typeConsultation:
+                    type: string
+            # ... autres jours de la semaine
+        evaluations:
+          type: object
+          properties:
+            noteMoyenne:
+              type: number
+              format: float
+              example: 4.2
+              nullable: true
+            nombreTotal:
+              type: integer
+              example: 127
+            repartitionNotes:
+              type: object
+              properties:
+                "5":
+                  type: integer
+                  example: 67
+                "4":
+                  type: integer
+                  example: 45
+                "3":
+                  type: integer
+                  example: 12
+                "2":
+                  type: integer
+                  example: 3
+                "1":
+                  type: integer
+                  example: 0
+            tauxRecommandation:
+              type: integer
+              example: 88
+            dernières:
+              type: array
+              items:
+                type: object
+                properties:
+                  note:
+                    type: integer
+                    example: 5
+                  commentaire:
+                    type: string
+                    example: "Excellent médecin, très à l'écoute"
+                  recommande:
+                    type: boolean
+                    example: true
+                  date:
+                    type: string
+                    format: date-time
+                  patientPrenom:
+                    type: string
+                    example: "M***"
+        statistiques:
+          type: object
+          properties:
+            consultationsRealisees:
+              type: integer
+              example: 342
+            consultationsParType:
+              type: object
+              properties:
+                DOMICILE:
+                  type: integer
+                  example: 45
+                CLINIQUE:
+                  type: integer
+                  example: 267
+                TELECONSULTATION:
+                  type: integer
+                  example: 30
+            accepteNouveauxPatients:
+              type: boolean
+              example: true
+            delaiMoyenReponse:
+              type: string
+              example: "12h"
+              nullable: true
+        media:
+          type: object
+          properties:
+            photoProfile:
+              type: string
+              nullable: true
+              example: "/uploads/profiles/medecin123.jpg"
+            photoCabinet:
+              type: string
+              nullable: true
+              example: "/uploads/cabinets/cabinet123.jpg"
+            videoPresentation:
+              type: string
+              nullable: true
+              example: "/uploads/videos/presentation123.mp4"
+        disponibilite:
+          type: object
+          properties:
+            statut:
+              type: string
+              enum: [DISPONIBLE, COMPLET, CONGE]
+              example: "DISPONIBLE"
+            message:
+              type: string
+              nullable: true
+              example: null
+            prochainCreneauLibre:
+              type: string
+              format: date-time
+              nullable: true

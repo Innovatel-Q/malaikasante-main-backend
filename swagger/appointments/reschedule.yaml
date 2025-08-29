@@ -1,0 +1,260 @@
+openapi: 3.0.0
+paths:
+  /v1/appointments/{id}/reschedule:
+    put:
+      tags:
+        - Appointments
+      summary: Reprogrammer un rendez-vous
+      description: |
+        Permet la reprogrammation d'un rendez-vous confirmé à une nouvelle date/heure.
+        Peut nécessiter l'accord mutuel selon qui fait la demande et le délai.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du rendez-vous à reprogrammer
+          schema:
+            type: string
+            format: uuid
+            example: "456e7890-e89b-12d3-a456-426614174000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nouvelleDateHeureDebut:
+                  type: string
+                  format: date-time
+                  description: Nouvelle date et heure souhaitées
+                  example: "2024-02-16T14:00:00.000Z"
+                motifReprogrammation:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+                  description: Motif obligatoire de la reprogrammation
+                  example: "Conflit avec un autre rendez-vous médical urgent"
+                nouveauTypeConsultation:
+                  type: string
+                  enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+                  description: Nouveau type de consultation (optionnel)
+                  example: "TELECONSULTATION"
+                nouvelleDureeEstimee:
+                  type: integer
+                  minimum: 15
+                  maximum: 120
+                  description: Nouvelle durée estimée en minutes
+                  example: 45
+                nouvelleAdresse:
+                  type: string
+                  maxLength: 500
+                  description: Nouvelle adresse (pour consultation à domicile)
+                  example: "456 Rue des Palmiers, Cocody, Abidjan"
+                demandeAccordMutuel:
+                  type: boolean
+                  description: Demander l'accord de l'autre partie
+                  example: true
+              required:
+                - nouvelleDateHeureDebut
+                - motifReprogrammation
+            example:
+              nouvelleDateHeureDebut: "2024-02-16T14:00:00.000Z"
+              motifReprogrammation: "Empêchement de dernière minute"
+              nouveauTypeConsultation: "TELECONSULTATION"
+              nouvelleDureeEstimee: 30
+              demandeAccordMutuel: true
+      responses:
+        '200':
+          description: Reprogrammation effectuée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Demande de reprogrammation envoyée avec succès"
+                  data:
+                    $ref: '#/components/schemas/ReprogrammationRendezVousResponse'
+        '400':
+          description: Reprogrammation impossible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                date_invalide:
+                  summary: Nouvelle date invalide
+                  value:
+                    success: false
+                    error: "INVALID_NEW_DATE"
+                    message: "La nouvelle date doit être au minimum 2h à l'avance"
+                creneau_indisponible:
+                  summary: Nouveau créneau indisponible
+                  value:
+                    success: false
+                    error: "NEW_SLOT_UNAVAILABLE"
+                    message: "Le nouveau créneau n'est pas disponible pour le médecin"
+                statut_invalide:
+                  summary: Statut ne permettant pas la reprogrammation
+                  value:
+                    success: false
+                    error: "INVALID_STATUS"
+                    message: "Seuls les rendez-vous confirmés peuvent être reprogrammés"
+                rdv_passe:
+                  summary: Rendez-vous passé
+                  value:
+                    success: false
+                    error: "PAST_APPOINTMENT"
+                    message: "Impossible de reprogrammer un rendez-vous passé"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Non autorisé à reprogrammer ce rendez-vous
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "UNAUTHORIZED_RESCHEDULE"
+                message: "Vous n'êtes pas autorisé à reprogrammer ce rendez-vous"
+        '404':
+          description: Rendez-vous non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "APPOINTMENT_NOT_FOUND"
+                message: "Rendez-vous non trouvé"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ReprogrammationRendezVousResponse:
+      type: object
+      properties:
+        rendezVous:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "456e7890-e89b-12d3-a456-426614174000"
+            ancienneDateHeureDebut:
+              type: string
+              format: date-time
+              example: "2024-02-15T10:00:00.000Z"
+            nouvelleDateHeureDebut:
+              type: string
+              format: date-time
+              example: "2024-02-16T14:00:00.000Z"
+            nouvelleDateHeureFin:
+              type: string
+              format: date-time
+              example: "2024-02-16T14:30:00.000Z"
+            ancienTypeConsultation:
+              type: string
+              example: "CLINIQUE"
+            nouveauTypeConsultation:
+              type: string
+              example: "TELECONSULTATION"
+            statut:
+              type: string
+              example: "EN_ATTENTE"
+            motifReprogrammation:
+              type: string
+              example: "Empêchement de dernière minute"
+            reprogrammePar:
+              type: string
+              example: "PATIENT"
+        changements:
+          type: object
+          properties:
+            date:
+              type: boolean
+              example: true
+            heure:
+              type: boolean
+              example: true
+            typeConsultation:
+              type: boolean
+              example: true
+            adresse:
+              type: boolean
+              example: false
+            tarif:
+              type: boolean
+              example: true
+        tarification:
+          type: object
+          properties:
+            ancienTarif:
+              type: number
+              example: 25000
+            nouveauTarif:
+              type: number
+              example: 20000
+            fraisReprogrammation:
+              type: number
+              example: 0
+            total:
+              type: number
+              example: 20000
+            messageDelai:
+              type: string
+              example: "Reprogrammation gratuite (plus de 24h à l'avance)"
+        partenaire:
+          oneOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  example: "medecin"
+                nom:
+                  type: string
+                  example: "KOUAME"
+                prenom:
+                  type: string
+                  example: "Jean-Baptiste"
+                specialite:
+                  type: string
+                  example: "Cardiologie"
+            - type: object
+              properties:
+                type:
+                  type: string
+                  example: "patient"
+                nom:
+                  type: string
+                  example: "DIABATE"
+                prenom:
+                  type: string
+                  example: "Aminata"
+                telephone:
+                  type: string
+                  example: "0709876543"
+        prochaines_etapes:
+          type: array
+          items:
+            type: string
+          oneOf:
+            - example:
+                - "Demande de reprogrammation envoyée"
+                - "En attente de confirmation de le médecin"
+                - "Vous recevrez une notification de la réponse"
+                - "L'ancien créneau reste réservé jusqu'à la réponse"
+            - example:
+                - "Rendez-vous reprogrammé avec succès"
+                - "Les deux parties ont été notifiées"
+                - "Le nouveau créneau est confirmé"
+                - "L'ancien créneau a été libéré"

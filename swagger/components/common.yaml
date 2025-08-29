@@ -1,0 +1,144 @@
+openapi: 3.0.0
+components:
+  schemas:
+    # Réponse d'erreur standard
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ERROR_CODE"
+        message:
+          type: string
+          example: "Description de l'erreur"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+
+    # Réponse de succès standard
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Opération réussie"
+        data:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+
+    # Pagination standard
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        totalResults:
+          type: integer
+          example: 150
+        totalPages:
+          type: integer
+          example: 8
+        hasNext:
+          type: boolean
+          example: true
+        hasPrevious:
+          type: boolean
+          example: false
+        nextPage:
+          type: integer
+          nullable: true
+          example: 2
+        previousPage:
+          type: integer
+          nullable: true
+          example: null
+
+  responses:
+    # Réponses d'erreur standard
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "BAD_REQUEST"
+            message: "Paramètres de requête invalides"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    Unauthorized:
+      description: Non authentifié - Token manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "Token d'authentification requis"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    Forbidden:
+      description: Accès refusé - Permissions insuffisantes
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "FORBIDDEN"
+            message: "Accès refusé pour ce rôle d'utilisateur"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    NotFound:
+      description: Ressource non trouvée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "NOT_FOUND"
+            message: "Ressource non trouvée"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    ServerError:
+      description: Erreur interne du serveur
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "INTERNAL_SERVER_ERROR"
+            message: "Une erreur interne s'est produite"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT obtenu lors de la connexion.
+        Format: `Authorization: Bearer <token>`
+        
+        Pour obtenir un token:
+        1. Créer un compte via `/v1/auth/register-patient` ou `/v1/auth/register-medecin`
+        2. Se connecter via `/v1/auth/login`
+        3. Utiliser le token retourné dans l'en-tête Authorization

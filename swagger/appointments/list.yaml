@@ -1,0 +1,390 @@
+openapi: 3.0.0
+paths:
+  /v1/appointments:
+    get:
+      tags:
+        - Appointments
+      summary: Lister les rendez-vous de l'utilisateur
+      description: |
+        Récupère la liste des rendez-vous de l'utilisateur connecté (patient ou médecin).
+        Permet de filtrer par statut, période, type de consultation avec pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: statut
+          in: query
+          description: Filtrer par statut de rendez-vous
+          schema:
+            type: string
+            enum: [DEMANDE, EN_ATTENTE, CONFIRME, REFUSE, ANNULE, TERMINE]
+            example: "CONFIRME"
+        - name: dateDebut
+          in: query
+          description: Date de début de la période de recherche
+          schema:
+            type: string
+            format: date
+            example: "2024-02-01"
+        - name: dateFin
+          in: query
+          description: Date de fin de la période de recherche
+          schema:
+            type: string
+            format: date
+            example: "2024-02-28"
+        - name: typeConsultation
+          in: query
+          description: Filtrer par type de consultation
+          schema:
+            type: string
+            enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+            example: "CLINIQUE"
+        - name: page
+          in: query
+          description: Numéro de la page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Nombre de résultats par page (max 50)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: sortBy
+          in: query
+          description: Champ de tri
+          schema:
+            type: string
+            enum: [dateHeureDebut, statut, createdAt]
+            default: dateHeureDebut
+        - name: sortOrder
+          in: query
+          description: Ordre de tri
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Rendez-vous récupérés avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Rendez-vous récupérés avec succès"
+                  data:
+                    $ref: '#/components/schemas/ListeRendezVousResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Profil utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "PROFILE_NOT_FOUND"
+                message: "Profil patient non trouvé"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ListeRendezVousResponse:
+      type: object
+      properties:
+        rendezVous:
+          type: array
+          items:
+            $ref: '#/components/schemas/RendezVousListeItem'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        filtres:
+          type: object
+          properties:
+            statut:
+              type: string
+              example: "TOUS"
+            dateDebut:
+              type: string
+              format: date
+              nullable: true
+            dateFin:
+              type: string
+              format: date
+              nullable: true
+            typeConsultation:
+              type: string
+              example: "TOUS"
+            sortBy:
+              type: string
+              example: "dateHeureDebut"
+            sortOrder:
+              type: string
+              example: "desc"
+        statistiques:
+          $ref: '#/components/schemas/StatistiquesRendezVous'
+        user:
+          type: object
+          properties:
+            role:
+              type: string
+              example: "PATIENT"
+            nom:
+              type: string
+              example: "DIABATE"
+            prenom:
+              type: string
+              example: "Aminata"
+
+    RendezVousListeItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "456e7890-e89b-12d3-a456-426614174000"
+        dateHeureDebut:
+          type: string
+          format: date-time
+          example: "2024-02-15T10:00:00.000Z"
+        dateHeureFin:
+          type: string
+          format: date-time
+          example: "2024-02-15T10:30:00.000Z"
+        typeConsultation:
+          type: string
+          example: "CLINIQUE"
+        statut:
+          type: string
+          example: "CONFIRME"
+        motifConsultation:
+          type: string
+          example: "Contrôle de routine pour hypertension artérielle"
+        niveauUrgence:
+          type: string
+          example: "NORMAL"
+        tarifPrevu:
+          type: number
+          example: 25000
+        adresseConsultation:
+          type: string
+          example: "123 Avenue de la République, Plateau"
+        informationsComplementaires:
+          type: string
+          nullable: true
+          example: "Patient sous traitement depuis 2 ans"
+        estPasse:
+          type: boolean
+          example: false
+        estProche:
+          type: boolean
+          example: true
+        dansXMinutes:
+          type: integer
+          nullable: true
+          example: 120
+        dateHumaine:
+          type: string
+          example: "jeudi 15 février 2024"
+        heureHumaine:
+          type: string
+          example: "10:00"
+        dateCreation:
+          type: string
+          format: date-time
+        dateReponse:
+          type: string
+          format: date-time
+          nullable: true
+        dateAnnulation:
+          type: string
+          format: date-time
+          nullable: true
+        messagePersonnaliseMedecin:
+          type: string
+          nullable: true
+        messagePersonnalisePatient:
+          type: string
+          nullable: true
+        partenaire:
+          oneOf:
+            - $ref: '#/components/schemas/PartenairePatient'
+            - $ref: '#/components/schemas/PartenaireMedecin'
+        evaluation:
+          type: object
+          properties:
+            aEvalue:
+              type: boolean
+              example: false
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  note:
+                    type: integer
+                    minimum: 1
+                    maximum: 5
+                  commentaire:
+                    type: string
+                  recommande:
+                    type: boolean
+                  typeEvaluation:
+                    type: string
+                  date:
+                    type: string
+                    format: date-time
+        consultation:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            aDiagnostic:
+              type: boolean
+            aTraitement:
+              type: boolean
+            aDocuments:
+              type: integer
+        actionsPossibles:
+          type: array
+          items:
+            type: string
+            enum: [ACCEPTER, REFUSER, ANNULER, REPROGRAMMER, EVALUER, COMMENCER_CONSULTATION]
+          example: ["ANNULER", "REPROGRAMMER"]
+
+    PartenairePatient:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "patient"
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+          example: "DIABATE"
+        prenom:
+          type: string
+          example: "Aminata"
+        telephone:
+          type: string
+          example: "0709876543"
+        email:
+          type: string
+          format: email
+        age:
+          type: integer
+          nullable: true
+          example: 35
+        sexe:
+          type: string
+          example: "F"
+        groupeSanguin:
+          type: string
+          nullable: true
+          example: "O+"
+
+    PartenaireMedecin:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "medecin"
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+          example: "KOUAME"
+        prenom:
+          type: string
+          example: "Jean-Baptiste"
+        specialite:
+          type: string
+          example: "Cardiologie"
+        telephone:
+          type: string
+          example: "0708123456"
+        email:
+          type: string
+          format: email
+        adresseCabinet:
+          type: string
+          example: "123 Avenue de la République"
+        villeCabinet:
+          type: string
+          example: "Abidjan"
+
+    StatistiquesRendezVous:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 15
+        parStatut:
+          type: object
+          properties:
+            DEMANDE:
+              type: integer
+              example: 1
+            EN_ATTENTE:
+              type: integer
+              example: 0
+            CONFIRME:
+              type: integer
+              example: 3
+            REFUSE:
+              type: integer
+              example: 1
+            ANNULE:
+              type: integer
+              example: 2
+            TERMINE:
+              type: integer
+              example: 8
+        prochainRendezVous:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            date:
+              type: string
+              example: "jeudi 15 février 2024"
+            heure:
+              type: string
+              example: "10:00"
+            avec:
+              type: string
+              example: "Jean-Baptiste KOUAME"
+            type:
+              type: string
+              example: "CLINIQUE"
+            dansXMinutes:
+              type: integer
+              example: 120
+        rendezVousEnCours:
+          type: integer
+          example: 0
+        rendezVousAujourdHui:
+          type: integer
+          example: 1
