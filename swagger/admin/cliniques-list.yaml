@@ -1,0 +1,570 @@
+openapi: 3.0.0
+info:
+  title: Admin Clinic List API
+  description: Liste et recherche des cliniques par les administrateurs
+  version: 1.0.0
+
+paths:
+  /v1/admin/cliniques:
+    get:
+      tags:
+        - Administration
+      summary: Récupérer la liste des cliniques
+      description: |
+        Permet aux administrateurs de consulter toutes les cliniques avec filtrage et pagination.
+        
+        **🏥 Fonctionnalités :**
+        - 📋 **Liste complète** : Toutes les cliniques avec données essentielles
+        - 🔍 **Recherche avancée** : Par nom, adresse, ville
+        - 📊 **Filtres multiples** : Statut actif/inactif, ville
+        - 📄 **Pagination** : Support de pagination complète
+        - 📈 **Statistiques** : Compteurs et métriques en temps réel
+        
+        **📋 Données retournées :**
+        
+        **Informations essentielles par clinique** :
+        - ID, nom, adresse, ville
+        - Informations de contact (téléphone, email)
+        - Statut (actif/inactif)
+        - Nombre de services proposés
+        - Nombre de médecins validés affiliés
+        - Date de création
+        
+        **🔍 Filtres disponibles :**
+        - **ville** : Filtrage par ville (recherche partielle)
+        - **active** : true/false pour cliniques actives/inactives
+        - **search** : Recherche textuelle dans nom et adresse
+        - **Pagination** : page, limit (1-100)
+        
+        **🔄 Workflow :**
+        1. Admin demande la liste (avec filtres optionnels)
+        2. Système applique les filtres et pagination
+        3. Récupération des données avec comptage médecins
+        4. Calcul des statistiques globales
+        5. Réponse formatée avec actions possibles
+        
+        **📊 Statistiques incluses :**
+        - Total cliniques (dans filtres)
+        - Cliniques actives vs inactives
+        - Total médecins affiliés
+        - Villes représentées
+        
+        **User Stories :** Admin-US7 (Consultation cliniques)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: page
+          in: query
+          description: |
+            Numéro de page à récupérer
+            
+            **Par défaut :** 1
+            **Minimum :** 1
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        
+        - name: limit
+          in: query
+          description: |
+            Nombre d'éléments par page
+            
+            **Par défaut :** 20
+            **Plage :** 1-100
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+        
+        - name: ville
+          in: query
+          description: |
+            Filtrer par ville (recherche partielle insensible à la casse)
+            
+            **Exemples :** "Abidjan", "Yamoussoukro", "Bouaké"
+            **Recherche :** Contient le terme (insensible casse)
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          example: "Abidjan"
+        
+        - name: active
+          in: query
+          description: |
+            Filtrer par statut actif/inactif
+            
+            **Valeurs :** true (actives), false (inactives)
+            **Non spécifié :** Toutes les cliniques
+          schema:
+            type: boolean
+          example: true
+        
+        - name: search
+          in: query
+          description: |
+            Recherche textuelle dans nom et adresse
+            
+            **Recherche dans :**
+            - Nom de la clinique
+            - Adresse complète
+            **Mode :** Insensible à la casse
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 200
+          example: "clinique internationale"
+
+      responses:
+        '200':
+          description: Liste des cliniques récupérée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Liste des cliniques récupérée avec succès"
+                  data:
+                    type: object
+                    properties:
+                      cliniques:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                            nom:
+                              type: string
+                              example: "Clinique Internationale d'Abidjan"
+                            adresse:
+                              type: string
+                              example: "Boulevard de la République, Plateau"
+                            ville:
+                              type: string
+                              example: "Abidjan"
+                            telephone:
+                              type: string
+                              nullable: true
+                              example: "+22521234567"
+                            email:
+                              type: string
+                              nullable: true
+                              example: "contact@clinique-abidjan.ci"
+                            active:
+                              type: boolean
+                              example: true
+                            nombreServices:
+                              type: integer
+                              description: "Nombre de services médicaux proposés"
+                              example: 5
+                            nombreMedecinsValides:
+                              type: integer
+                              description: "Nombre de médecins validés affiliés"
+                              example: 12
+                            dateCreation:
+                              type: string
+                              format: date-time
+                              example: "2024-01-10T10:30:22.123Z"
+                            statut:
+                              type: string
+                              enum: [ACTIVE, INACTIVE]
+                              example: "ACTIVE"
+                      pagination:
+                        type: object
+                        properties:
+                          currentPage:
+                            type: integer
+                            example: 1
+                          totalPages:
+                            type: integer
+                            example: 5
+                          totalCount:
+                            type: integer
+                            example: 87
+                          limit:
+                            type: integer
+                            example: 20
+                          hasNextPage:
+                            type: boolean
+                            example: true
+                          hasPrevPage:
+                            type: boolean
+                            example: false
+                          itemsOnPage:
+                            type: integer
+                            description: "Nombre d'éléments sur cette page"
+                            example: 20
+                      filtres:
+                        type: object
+                        description: "Filtres appliqués et disponibles"
+                        properties:
+                          ville:
+                            type: string
+                            nullable: true
+                            example: "Abidjan"
+                          active:
+                            type: boolean
+                            nullable: true
+                            example: true
+                          search:
+                            type: string
+                            nullable: true
+                            example: "clinique"
+                          filtresAppliques:
+                            type: array
+                            items:
+                              type: string
+                            description: "Liste des filtres actifs"
+                            example: ["Ville: Abidjan", "Statut: Actives"]
+                      statistiques:
+                        type: object
+                        description: "Statistiques globales (dans les filtres appliqués)"
+                        properties:
+                          totalCliniques:
+                            type: integer
+                            example: 87
+                          cliniquesActives:
+                            type: integer
+                            example: 82
+                          cliniquesInactives:
+                            type: integer
+                            example: 5
+                          totalMedecinsAffilies:
+                            type: integer
+                            description: "Total médecins dans les cliniques listées"
+                            example: 234
+                          villesRepresentees:
+                            type: integer
+                            description: "Nombre de villes différentes"
+                            example: 8
+                      actions:
+                        type: object
+                        description: "Actions disponibles"
+                        properties:
+                          voirDetails:
+                            type: string
+                            example: "GET /v1/admin/cliniques/{id}"
+                          creerClinique:
+                            type: string
+                            example: "POST /v1/admin/cliniques"
+                          modifierClinique:
+                            type: string
+                            example: "PUT /v1/admin/cliniques/{id}"
+                      requestInfo:
+                        type: object
+                        description: "Informations sur la requête"
+                        properties:
+                          requestedBy:
+                            type: string
+                            example: "Admin Marie Kouassi"
+                          requestedAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                liste_complete:
+                  summary: Liste complète sans filtres
+                  description: Récupération de toutes les cliniques, page 1
+                  value:
+                    success: true
+                    message: "Liste des cliniques récupérée avec succès"
+                    data:
+                      cliniques:
+                        - id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom: "Clinique Internationale d'Abidjan"
+                          adresse: "Boulevard de la République, Plateau"
+                          ville: "Abidjan"
+                          telephone: "+22521234567"
+                          email: "contact@clinique-abidjan.ci"
+                          active: true
+                          nombreServices: 8
+                          nombreMedecinsValides: 15
+                          dateCreation: "2024-01-10T10:30:22.123Z"
+                          statut: "ACTIVE"
+                        - id: "d4e5f6g7-h8i9-0123-defg-234567890123"
+                          nom: "Polyclinique de Yamoussoukro"
+                          adresse: "Avenue Houphouët-Boigny, centre-ville"
+                          ville: "Yamoussoukro"
+                          telephone: "+22530456789"
+                          email: null
+                          active: true
+                          nombreServices: 5
+                          nombreMedecinsValides: 8
+                          dateCreation: "2024-01-08T15:22:11.456Z"
+                          statut: "ACTIVE"
+                        - id: "e5f6g7h8-i9j0-1234-efgh-345678901234"
+                          nom: "Cabinet Médical Dr Kouame"
+                          adresse: "Rue des Jardins, Cocody Riviera"
+                          ville: "Abidjan"
+                          telephone: null
+                          email: "dr.kouame@cabinet.ci"
+                          active: false
+                          nombreServices: 2
+                          nombreMedecinsValides: 1
+                          dateCreation: "2024-01-05T09:15:33.789Z"
+                          statut: "INACTIVE"
+                      pagination:
+                        currentPage: 1
+                        totalPages: 5
+                        totalCount: 87
+                        limit: 20
+                        hasNextPage: true
+                        hasPrevPage: false
+                        itemsOnPage: 20
+                      filtres:
+                        ville: null
+                        active: null
+                        search: null
+                        filtresAppliques: []
+                      statistiques:
+                        totalCliniques: 87
+                        cliniquesActives: 82
+                        cliniquesInactives: 5
+                        totalMedecinsAffilies: 234
+                        villesRepresentees: 8
+                      actions:
+                        voirDetails: "GET /v1/admin/cliniques/{id}"
+                        creerClinique: "POST /v1/admin/cliniques"
+                        modifierClinique: "PUT /v1/admin/cliniques/{id}"
+                      requestInfo:
+                        requestedBy: "Admin Marie Kouassi"
+                        requestedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                liste_filtree_abidjan:
+                  summary: Liste filtrée par ville (Abidjan)
+                  description: Cliniques d'Abidjan uniquement
+                  value:
+                    success: true
+                    message: "Liste des cliniques récupérée avec succès"
+                    data:
+                      cliniques:
+                        - id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom: "Clinique Internationale d'Abidjan"
+                          adresse: "Boulevard de la République, Plateau"
+                          ville: "Abidjan"
+                          telephone: "+22521234567"
+                          email: "contact@clinique-abidjan.ci"
+                          active: true
+                          nombreServices: 8
+                          nombreMedecinsValides: 15
+                          dateCreation: "2024-01-10T10:30:22.123Z"
+                          statut: "ACTIVE"
+                      pagination:
+                        currentPage: 1
+                        totalPages: 3
+                        totalCount: 42
+                        limit: 20
+                        hasNextPage: true
+                        hasPrevPage: false
+                        itemsOnPage: 20
+                      filtres:
+                        ville: "Abidjan"
+                        active: null
+                        search: null
+                        filtresAppliques: ["Ville: Abidjan"]
+                      statistiques:
+                        totalCliniques: 42
+                        cliniquesActives: 40
+                        cliniquesInactives: 2
+                        totalMedecinsAffilies: 127
+                        villesRepresentees: 1
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                liste_cliniques_actives:
+                  summary: Liste des cliniques actives uniquement
+                  description: Filtrage par statut actif
+                  value:
+                    success: true
+                    message: "Liste des cliniques récupérée avec succès"
+                    data:
+                      cliniques:
+                        - id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom: "Clinique Internationale d'Abidjan"
+                          ville: "Abidjan"
+                          active: true
+                          nombreMedecinsValides: 15
+                          statut: "ACTIVE"
+                      pagination:
+                        currentPage: 1
+                        totalPages: 5
+                        totalCount: 82
+                        limit: 20
+                        hasNextPage: true
+                        hasPrevPage: false
+                        itemsOnPage: 20
+                      filtres:
+                        ville: null
+                        active: true
+                        search: null
+                        filtresAppliques: ["Statut: Actives"]
+                      statistiques:
+                        totalCliniques: 82
+                        cliniquesActives: 82
+                        cliniquesInactives: 0
+                        totalMedecinsAffilies: 220
+                        villesRepresentees: 7
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                recherche_textuelle:
+                  summary: Recherche textuelle "clinique internationale"
+                  description: Recherche dans noms et adresses
+                  value:
+                    success: true
+                    message: "Liste des cliniques récupérée avec succès"
+                    data:
+                      cliniques:
+                        - id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom: "Clinique Internationale d'Abidjan"
+                          ville: "Abidjan"
+                          active: true
+                          nombreMedecinsValides: 15
+                        - id: "f7g8h9i0-j1k2-3456-ghij-456789012345"
+                          nom: "Clinique Internationale de Yamoussoukro"
+                          ville: "Yamoussoukro"
+                          active: true
+                          nombreMedecinsValides: 7
+                      pagination:
+                        currentPage: 1
+                        totalPages: 1
+                        totalCount: 2
+                        limit: 20
+                        hasNextPage: false
+                        hasPrevPage: false
+                        itemsOnPage: 2
+                      filtres:
+                        ville: null
+                        active: null
+                        search: "clinique internationale"
+                        filtresAppliques: ["Recherche: clinique internationale"]
+                      statistiques:
+                        totalCliniques: 2
+                        cliniquesActives: 2
+                        cliniquesInactives: 0
+                        totalMedecinsAffilies: 22
+                        villesRepresentees: 2
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Requête invalide - Paramètres de filtrage incorrects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pagination_invalide:
+                  summary: Paramètres de pagination incorrects
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "Paramètres de requête invalides"
+                    details:
+                      page: "La page doit être un nombre supérieur à 0"
+                      limit: "La limite doit être entre 1 et 100"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                recherche_trop_courte:
+                  summary: Terme de recherche trop court
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "Paramètres de requête invalides"
+                    details:
+                      search: "La recherche doit contenir au moins 2 caractères"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '403':
+          description: Accès refusé - Réservé aux administrateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "FORBIDDEN"
+                message: "Accès réservé aux administrateurs"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ERROR_CODE"
+        message:
+          type: string
+          example: "Description de l'erreur"
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+
+  responses:
+    Unauthorized:
+      description: Non authentifié - Token manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "Token d'authentification requis"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    ServerError:
+      description: Erreur interne du serveur
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "INTERNAL_SERVER_ERROR"
+            message: "Erreur interne lors de la récupération de la liste des cliniques"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT d'administrateur obtenu lors de la connexion.
+        Format: `Authorization: Bearer <admin_token>`

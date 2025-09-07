@@ -1,13 +1,134 @@
 openapi: 3.0.0
 paths:
+  /v1/doctors/recommend:
+    post:
+      tags:
+        - Doctors
+      summary: Recommandation intelligente de médecins
+      description: |
+        Système de recommandation intelligent qui analyse les préférences du patient
+        (position, spécialité, type de consultation, budget) et propose les 3 meilleurs
+        médecins avec un système de scoring avancé. Le premier choix est mis en avant
+        avec une explication des raisons de la recommandation.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - latitude
+                - longitude
+                - typeConsultation
+              properties:
+                latitude:
+                  type: number
+                  format: float
+                  minimum: -90
+                  maximum: 90
+                  description: Latitude de la position du patient
+                  example: 5.3597
+                longitude:
+                  type: number
+                  format: float
+                  minimum: -180
+                  maximum: 180
+                  description: Longitude de la position du patient
+                  example: -4.0083
+                adresse:
+                  type: string
+                  maxLength: 500
+                  description: Adresse du patient (optionnel, pour contexte)
+                  example: "Cocody, Abidjan"
+                specialite:
+                  type: string
+                  maxLength: 100
+                  description: Spécialité médicale recherchée (optionnel)
+                  example: "CARDIOLOGIE"
+                typeConsultation:
+                  type: string
+                  enum: [DOMICILE, CLINIQUE, TELECONSULTATION]
+                  description: Type de consultation souhaité
+                  example: "CLINIQUE"
+                budget:
+                  type: number
+                  minimum: 0
+                  maximum: 1000000
+                  description: Budget maximum en XOF (optionnel)
+                  example: 50000
+      responses:
+        '200':
+          description: Recommandations générées avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Recommandations générées avec succès"
+                  data:
+                    type: object
+                    properties:
+                      recommendations:
+                        type: array
+                        maxItems: 3
+                        items:
+                          $ref: '#/components/schemas/RecommandationMedecin'
+                      criteres:
+                        type: object
+                        properties:
+                          position:
+                            type: object
+                            properties:
+                              latitude:
+                                type: number
+                              longitude:
+                                type: number
+                          adresse:
+                            type: string
+                            nullable: true
+                          specialite:
+                            type: string
+                            nullable: true
+                          typeConsultation:
+                            type: string
+                          budget:
+                            type: number
+                            nullable: true
+                      statistiques:
+                        type: object
+                        properties:
+                          nombreMedecinsAnalyses:
+                            type: integer
+                            description: Nombre total de médecins analysés
+                          scoreMoyenTop3:
+                            type: number
+                            description: Score moyen des 3 recommandations
+                          tarifMoyenEstime:
+                            type: integer
+                            description: Tarif moyen estimé des recommandations
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /v1/doctors/search:
     get:
       tags:
         - Doctors
-      summary: Recherche multicritères de médecins
+      summary: Recherche multicritères de médecins (ancienne version)
       description: |
         Recherche avancée de médecins validés avec filtres multiples.
         Permet de trouver des médecins selon la spécialité, localisation, tarifs, services proposés, etc.
+        Note: Cette version est maintenue pour compatibilité. Utilisez /doctors/recommend pour une expérience optimisée.
       security:
         - bearerAuth: []
       parameters:
@@ -266,10 +387,193 @@ components:
           type: boolean
           example: true
         photoProfile:
-          type: string
+          type: object
           nullable: true
-          example: "/uploads/profiles/medecin123.jpg"
+          properties:
+            fileId:
+              type: string
+              example: "medecin_photo_123456789"
+            nom_fichier:
+              type: string
+              example: "photo-profil-5-1704461422123-profile.jpg"
+            taille:
+              type: integer
+              example: 524288
+            mime_type:
+              type: string
+              example: "image/jpeg"
+            upload_date:
+              type: string
+              format: date-time
+              example: "2024-01-15T14:30:22.123Z"
+            url:
+              type: string
+              example: "http://localhost:3000/files/uploads/photos/profil/photo-profil-5-1704461422123-profile.jpg"
+              description: "URL publique pour accéder à la photo de profil"
         photoCabinet:
+          type: object
+          nullable: true
+          properties:
+            fileId:
+              type: string
+              example: "cabinet_photo_123456789"
+            nom_fichier:
+              type: string
+              example: "photo-cabinet-5-1704461422123-cabinet.jpg"
+            taille:
+              type: integer
+              example: 724288
+            mime_type:
+              type: string
+              example: "image/jpeg"
+            upload_date:
+              type: string
+              format: date-time
+              example: "2024-01-15T14:30:22.123Z"
+            url:
+              type: string
+              example: "http://localhost:3000/files/uploads/photos/cabinet/photo-cabinet-5-1704461422123-cabinet.jpg"
+              description: "URL publique pour accéder à la photo du cabinet"
+  
+    RecommandationMedecin:
+      type: object
+      properties:
+        medecin:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "123e4567-e89b-12d3-a456-426614174000"
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                nom:
+                  type: string
+                  example: "KOUAME"
+                prenom:
+                  type: string
+                  example: "Jean-Baptiste"
+                email:
+                  type: string
+                  format: email
+                  example: "jb.kouame@email.com"
+                telephone:
+                  type: string
+                  example: "0708123456"
+            specialites:
+              type: array
+              items:
+                type: string
+              example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+            experienceAnnees:
+              type: integer
+              example: 15
+              nullable: true
+            noteMoyenne:
+              type: number
+              format: float
+              example: 4.2
+            nombreEvaluations:
+              type: integer
+              example: 127
+            photoProfile:
+              type: object
+              nullable: true
+              properties:
+                fileId:
+                  type: string
+                nom_fichier:
+                  type: string
+                url:
+                  type: string
+            bio:
+              type: string
+              nullable: true
+              example: "Cardiologue expérimenté avec 15 ans d'expérience..."
+            languesParlees:
+              type: array
+              items:
+                type: string
+              example: ["Français", "Anglais", "Baoulé"]
+            clinique:
+              type: object
+              nullable: true
+              properties:
+                nom:
+                  type: string
+                  example: "Clinique de la Paix"
+                adresse:
+                  type: string
+                  example: "123 Avenue de la République"
+                ville:
+                  type: string
+                  example: "Abidjan"
+                latitude:
+                  type: number
+                  format: decimal
+                longitude:
+                  type: number
+                  format: decimal
+        score:
+          type: number
+          format: float
+          example: 8.7
+          description: Score de recommandation sur 10
+        distance:
           type: string
           nullable: true
-          example: "/uploads/cabinets/cabinet123.jpg"
+          example: "2.1 km"
+          description: Distance calculée depuis la position du patient
+        tarifEstime:
+          type: number
+          example: 25000
+          description: Tarif estimé pour le type de consultation demandé
+        disponible:
+          type: boolean
+          example: true
+          description: Indique si le médecin a des créneaux disponibles
+        prochainCreneauEstime:
+          type: string
+          example: "Aujourd'hui ou demain"
+          description: Estimation du prochain créneau disponible
+        highlighted:
+          type: boolean
+          example: true
+          description: Indique si cette recommandation est mise en avant
+        raisonMiseEnAvant:
+          type: string
+          nullable: true
+          example: "Excellentes évaluations patients • Très proche de votre position"
+          description: Explication de pourquoi cette recommandation est mise en avant
+        scoreDetails:
+          type: object
+          description: Détail des scores par critère pour transparence
+          properties:
+            distance:
+              type: number
+              example: 9.1
+              description: Score distance (0-10)
+            note:
+              type: number
+              example: 8.4
+              description: Score basé sur les évaluations (0-10)
+            experience:
+              type: number
+              example: 7.5
+              description: Score basé sur l'expérience (0-10)
+            disponibilite:
+              type: number
+              example: 10
+              description: Score disponibilité (0 ou 10)
+            budget:
+              type: number
+              example: 10
+              description: Score compatibilité budget (0-10)
+            specialite:
+              type: number
+              example: 10
+              description: Score correspondance spécialité (5 neutre, 10 exact)

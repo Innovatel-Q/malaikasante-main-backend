@@ -80,6 +80,19 @@ class ApiResponse {
     }
 
     /**
+     * Réponse en cas de conflit de ressource (409)
+     */
+    static conflict(res, message, data = null) {
+        return res.status(409).json({
+            success: false,
+            error: 'CONFLICT',
+            message,
+            data,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    /**
      * Réponse en cas d'erreur serveur (500)
      */
     static serverError(res, message, data = null) {

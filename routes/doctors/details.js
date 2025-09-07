@@ -142,7 +142,7 @@ router.get('/:id',
             // Calcul des statistiques
             const evaluations = medecin.evaluations || [];
             const noteMoyenne = evaluations.length > 0
-                ? evaluations.reduce((sum, eval) => sum + eval.note, 0) / evaluations.length
+                ? evaluations.reduce((sum, evaluation) => sum + evaluation.note, 0) / evaluations.length
                 : null;
 
             const repartitionNotes = {
@@ -174,12 +174,12 @@ router.get('/:id',
             };
 
             // Formatage des évaluations publiques (anonymisées)
-            const evaluationsPubliques = evaluations.map(eval => ({
-                note: eval.note,
-                commentaire: eval.commentaire,
-                recommande: eval.recommande,
-                date: eval.createdAt,
-                patientPrenom: eval.patient?.user?.prenom ? `${eval.patient.user.prenom.charAt(0)}***` : 'Anonyme'
+            const evaluationsPubliques = evaluations.map(evaluation => ({
+                note: evaluation.note,
+                commentaire: evaluation.commentaire,
+                recommande: evaluation.recommande,
+                date: evaluation.createdAt,
+                patientPrenom: evaluation.patient?.user?.prenom ? `${evaluation.patient.user.prenom.charAt(0)}***` : 'Anonyme'
             }));
 
             // Organisation des horaires par jour
@@ -268,8 +268,38 @@ router.get('/:id',
                     delaiMoyenReponse: medecin.delaiMoyenReponse ? `${medecin.delaiMoyenReponse}h` : null
                 },
                 media: {
-                    photoProfile: medecin.photoProfile,
-                    photoCabinet: medecin.photoCabinet,
+                    photoProfile: medecin.photoProfile ? (() => {
+                        try {
+                            const photoData = typeof medecin.photoProfile === 'string' 
+                                ? JSON.parse(medecin.photoProfile) 
+                                : medecin.photoProfile;
+                            return {
+                                ...photoData,
+                                url: photoData.nom_fichier 
+                                    ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/profil/${photoData.nom_fichier}`
+                                    : null
+                            };
+                        } catch (e) {
+                            console.warn('Erreur parsing photoProfile:', e);
+                            return null;
+                        }
+                    })() : null,
+                    photoCabinet: medecin.photoCabinet ? (() => {
+                        try {
+                            const photoData = typeof medecin.photoCabinet === 'string' 
+                                ? JSON.parse(medecin.photoCabinet) 
+                                : medecin.photoCabinet;
+                            return {
+                                ...photoData,
+                                url: photoData.nom_fichier 
+                                    ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/cabinet/${photoData.nom_fichier}`
+                                    : null
+                            };
+                        } catch (e) {
+                            console.warn('Erreur parsing photoCabinet:', e);
+                            return null;
+                        }
+                    })() : null,
                     videoPresentation: medecin.videoPresentation
                 },
                 disponibilite: {

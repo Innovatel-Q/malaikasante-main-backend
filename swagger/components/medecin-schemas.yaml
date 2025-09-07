@@ -1,0 +1,629 @@
+openapi: 3.0.0
+components:
+  schemas:
+    # ============================================================================
+    # SCHÉMAS SPÉCIFIQUES AUX MÉDECINS
+    # ============================================================================
+
+    # Énumérations officielles
+    SpecialiteMedicale:
+      type: string
+      enum:
+        - MEDECINE_GENERALE
+        - CARDIOLOGIE
+        - DERMATOLOGIE
+        - PEDIATRIE
+        - GYNECOLOGIE
+        - NEUROLOGIE
+        - PSYCHIATRIE
+        - CHIRURGIE_GENERALE
+        - OPHTALMOLOGIE
+        - ORL
+        - RADIOLOGIE
+        - ANESTHESIE
+        - URGENCES
+        - MEDECINE_INTERNE
+        - ENDOCRINOLOGIE
+        - RHUMATOLOGIE
+        - GASTROENTEROLOGIE
+        - PNEUMOLOGIE
+        - NEPHROLOGIE
+        - ONCOLOGIE
+      description: |
+        Spécialités médicales officiellement reconnues en Côte d'Ivoire
+        
+        **Liste exhaustive** selon l'Ordre des Médecins de Côte d'Ivoire
+
+    StatutValidationMedecin:
+      type: string
+      enum:
+        - EN_ATTENTE
+        - VALIDE
+        - REJETE
+      description: |
+        Statut de validation d'un médecin par l'administration
+        
+        - **EN_ATTENTE** : Inscription reçue, en cours d'examen
+        - **VALIDE** : Médecin approuvé, peut exercer sur la plateforme
+        - **REJETE** : Demande refusée avec motif
+
+    LangueParlée:
+      type: string
+      enum:
+        - FRANCAIS
+        - ANGLAIS
+        - BAOULÉ
+        - DIOULA
+        - BÉTÉ
+        - YACOUBA
+        - SÉNOUFO
+        - AUTRES
+      description: |
+        Langues parlées couramment en Côte d'Ivoire
+        
+        **Usage** : Facilite la communication médecin-patient
+
+    TypeDocumentMedical:
+      type: string
+      enum:
+        - DIPLOME
+        - CERTIFICATION
+        - AUTRE
+      description: |
+        Types de documents médicaux acceptés
+        
+        - **DIPLOME** : Diplômes universitaires, certificats d'études
+        - **CERTIFICATION** : Ordre des médecins, formations continues
+        - **AUTRE** : Autres documents médicaux pertinents
+
+    # Informations utilisateur de base pour médecin
+    MedecinUserInfo:
+      type: object
+      description: Informations utilisateur associées à un médecin
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+        nom:
+          type: string
+          example: "Diabaté"
+        prenom:
+          type: string
+          example: "Dr Fatou"
+        email:
+          type: string
+          format: email
+          example: "dr.fatou.diabate@clinique-abidjan.ci"
+        telephone:
+          type: string
+          example: "+22507080910"
+        role:
+          type: string
+          enum: [MEDECIN]
+          example: "MEDECIN"
+        statut:
+          type: string
+          enum: [ACTIF, SUSPENDU, DESACTIVE]
+          example: "ACTIF"
+      required:
+        - id
+        - nom
+        - prenom
+        - email
+        - telephone
+        - role
+        - statut
+
+    # Profil médecin complet
+    MedecinProfileComplet:
+      type: object
+      description: Profil complet d'un médecin avec toutes ses informations
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        user:
+          $ref: '#/components/schemas/MedecinUserInfo'
+        numeroOrdre:
+          type: string
+          pattern: '^[A-Z0-9]+$'
+          example: "CI123456789"
+          description: "Numéro d'inscription à l'Ordre des Médecins"
+        specialites:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecialiteMedicale'
+          minItems: 1
+          uniqueItems: true
+          example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+        statutValidation:
+          $ref: '#/components/schemas/StatutValidationMedecin'
+        bio:
+          type: string
+          nullable: true
+          maxLength: 1000
+          example: "Cardiologue interventionnelle avec 15 ans d'expérience."
+        experienceAnnees:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 60
+          example: 15
+        languesParlees:
+          type: array
+          items:
+            $ref: '#/components/schemas/LangueParlée'
+          uniqueItems: true
+          example: ["FRANCAIS", "DIOULA", "ANGLAIS"]
+        tarifConsultationBase:
+          type: number
+          nullable: true
+          multipleOf: 0.01
+          minimum: 0
+          maximum: 1000000
+          example: 25000.00
+          description: "Tarif de base en FCFA"
+        accepteDomicile:
+          type: boolean
+          example: true
+        accepteTeleconsultation:
+          type: boolean
+          example: true
+        accepteclinique:
+          type: boolean
+          example: true
+        noteMoyenne:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+          example: 4.7
+          description: "Note moyenne sur 5 étoiles"
+        nombreEvaluations:
+          type: integer
+          minimum: 0
+          example: 127
+        clinique:
+          $ref: '#/components/schemas/CliniqueInfo'
+        dateValidation:
+          type: string
+          format: date
+          nullable: true
+          example: "2024-01-15"
+        motifRejet:
+          type: string
+          nullable: true
+          example: "Documents illisibles, veuillez fournir des copies plus claires"
+      required:
+        - id
+        - user
+        - numeroOrdre
+        - specialites
+        - statutValidation
+        - accepteDomicile
+        - accepteTeleconsultation
+        - accepteclinique
+        - noteMoyenne
+        - nombreEvaluations
+
+    # Informations clinique simplifiées
+    CliniqueInfo:
+      type: object
+      nullable: true
+      description: Informations de base sur la clinique d'exercice
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+        nom:
+          type: string
+          example: "Clinique Internationale d'Abidjan"
+        ville:
+          type: string
+          example: "Abidjan"
+        adresse:
+          type: string
+          example: "Boulevard de la République, Plateau"
+        telephone:
+          type: string
+          nullable: true
+          example: "+22521234567"
+
+    # Document médical avec métadonnées complètes
+    DocumentMedical:
+      type: object
+      description: Document médical avec libellé personnalisé et métadonnées
+      properties:
+        documentId:
+          type: string
+          description: ID unique du document pour les opérations
+          example: "abc123def456ghi789"
+        libelle:
+          type: string
+          minLength: 3
+          maxLength: 200
+          description: Libellé descriptif personnalisé
+          example: "Diplôme de Docteur en Médecine - Université d'Abidjan"
+        type:
+          $ref: '#/components/schemas/TypeDocumentMedical'
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Description détaillée optionnelle
+          example: "Diplôme obtenu en juin 2020 avec mention Très Bien"
+        filename:
+          type: string
+          description: Nom du fichier physique
+          example: "abc123def456ghi789.pdf"
+        originalName:
+          type: string
+          description: Nom original du fichier uploadé
+          example: "diplome_medecine_2020.pdf"
+        size:
+          type: integer
+          description: Taille du fichier en bytes
+          minimum: 0
+          maximum: 10485760
+          example: 2048576
+        mimeType:
+          type: string
+          enum: ["application/pdf", "image/jpeg", "image/png"]
+          description: Type MIME du fichier
+          example: "application/pdf"
+        uploadDate:
+          type: string
+          format: date-time
+          description: Date d'upload du document
+          example: "2024-01-10T09:15:30.123Z"
+        uploadedByAdminId:
+          type: string
+          format: uuid
+          description: ID de l'admin qui a uploadé
+          example: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+        uploadedByAdminName:
+          type: string
+          description: Nom complet de l'admin qui a uploadé
+          example: "Admin Marie Kouassi"
+        lastUpdatedBy:
+          type: string
+          nullable: true
+          description: Dernière modification par (si applicable)
+          example: "Admin Jean Kouakou"
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Date dernière modification (si applicable)
+          example: "2024-01-12T16:45:20.456Z"
+        filePath:
+          type: string
+          description: Chemin physique du fichier (usage interne)
+          example: "/uploads/medecins/diplomes/abc123def456ghi789.pdf"
+        relativePath:
+          type: string
+          description: Chemin relatif pour URLs d'accès
+          example: "uploads/medecins/diplomes/abc123def456ghi789.pdf"
+      required:
+        - documentId
+        - libelle
+        - type
+        - filename
+        - originalName
+        - size
+        - mimeType
+        - uploadDate
+        - uploadedByAdminId
+        - uploadedByAdminName
+
+    # Collection de documents par type
+    DocumentsParType:
+      type: object
+      description: Documents organisés par type
+      properties:
+        diplomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentMedical'
+          description: Liste des diplômes du médecin
+        certifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentMedical'
+          description: Liste des certifications du médecin
+      example:
+        diplomes:
+          - documentId: "abc123"
+            libelle: "Diplôme de Docteur en Médecine"
+            type: "DIPLOME"
+            filename: "abc123.pdf"
+            size: 2048576
+        certifications:
+          - documentId: "def456"
+            libelle: "Certificat Ordre des Médecins 2024"
+            type: "CERTIFICATION"
+            filename: "def456.pdf"
+            size: 512000
+
+    # Statistiques des documents
+    StatistiquesDocuments:
+      type: object
+      description: Statistiques sur les documents d'un médecin
+      properties:
+        totalDiplomes:
+          type: integer
+          minimum: 0
+          example: 2
+        totalCertifications:
+          type: integer
+          minimum: 0
+          example: 1
+        total:
+          type: integer
+          minimum: 0
+          example: 3
+        dernierUpload:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-01-15T14:30:22.123Z"
+      required:
+        - totalDiplomes
+        - totalCertifications
+        - total
+
+    # Données de mise à jour pour les actions admin
+    InfoMiseAJourAdmin:
+      type: object
+      description: Informations de traçabilité des actions admin
+      properties:
+        fieldsUpdated:
+          type: array
+          items:
+            type: string
+          description: Liste des champs qui ont été modifiés
+          example: ["user.email", "user.telephone", "medecin.specialites"]
+        updatedBy:
+          type: string
+          description: Admin qui a effectué la modification
+          example: "Admin Marie Kouassi"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Horodatage de la modification
+          example: "2024-01-15T14:30:22.123Z"
+        ip:
+          type: string
+          description: Adresse IP de l'admin
+          example: "192.168.1.100"
+        action:
+          type: string
+          description: Type d'action effectuée
+          example: "PROFILE_UPDATE"
+      required:
+        - updatedBy
+        - updatedAt
+        - ip
+
+    # Info d'upload pour les documents
+    InfoUploadDocument:
+      type: object
+      description: Informations sur l'upload d'un document
+      properties:
+        uploadedBy:
+          type: string
+          description: Admin qui a effectué l'upload
+          example: "Admin Marie Kouassi"
+        uploadedAt:
+          type: string
+          format: date-time
+          description: Horodatage de l'upload
+          example: "2024-01-15T14:30:22.123Z"
+        storageMode:
+          type: string
+          enum: [local, external]
+          description: Mode de stockage utilisé
+          example: "local"
+        ip:
+          type: string
+          description: Adresse IP de l'admin
+          example: "192.168.1.100"
+      required:
+        - uploadedBy
+        - uploadedAt
+        - storageMode
+
+    # Info de suppression pour les documents
+    InfoSuppressionDocument:
+      type: object
+      description: Informations sur la suppression d'un document
+      properties:
+        deletedBy:
+          type: string
+          description: Admin qui a effectué la suppression
+          example: "Admin Marie Kouassi"
+        deletedAt:
+          type: string
+          format: date-time
+          description: Horodatage de la suppression
+          example: "2024-01-15T14:30:22.123Z"
+        physicalFileDeleted:
+          type: boolean
+          description: Le fichier physique a-t-il été supprimé ?
+          example: true
+        reason:
+          type: string
+          nullable: true
+          description: Raison de la suppression (optionnel)
+          example: "Document obsolète remplacé"
+        ip:
+          type: string
+          description: Adresse IP de l'admin
+          example: "192.168.1.100"
+      required:
+        - deletedBy
+        - deletedAt
+        - physicalFileDeleted
+
+    # ============================================================================
+    # SCHÉMAS DE REQUÊTE POUR LES MISES À JOUR
+    # ============================================================================
+
+    # Requête de mise à jour profil médecin (tous les champs optionnels)
+    RequeteMiseAJourProfilMedecin:
+      type: object
+      description: |
+        Requête de mise à jour partielle du profil médecin.
+        Tous les champs sont optionnels pour permettre une mise à jour ciblée.
+      properties:
+        # Données utilisateur
+        nom:
+          type: string
+          minLength: 2
+          maxLength: 100
+          pattern: "^[A-Za-zÀ-ÿ\\-'\\s]+$"
+          example: "Diabaté"
+        prenom:
+          type: string
+          minLength: 2
+          maxLength: 100
+          pattern: "^[A-Za-zÀ-ÿ\\-'\\s]+$"
+          example: "Dr Fatou"
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: "dr.fatou.diabate@clinique-abidjan.ci"
+        telephone:
+          type: string
+          pattern: '^(\+225|0)[0-9]{8,10}$'
+          example: "+22507080910"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          example: "NouveauMotDePasse2024!"
+        
+        # Données médecin
+        numeroOrdre:
+          type: string
+          minLength: 5
+          maxLength: 50
+          pattern: '^[A-Z0-9]+$'
+          example: "CI123456789"
+        specialites:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecialiteMedicale'
+          minItems: 1
+          uniqueItems: true
+          example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+        bio:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: "Cardiologue interventionnelle avec 15 ans d'expérience."
+        experienceAnnees:
+          type: integer
+          minimum: 0
+          maximum: 60
+          nullable: true
+          example: 15
+        languesParlees:
+          type: array
+          items:
+            $ref: '#/components/schemas/LangueParlée'
+          uniqueItems: true
+          example: ["FRANCAIS", "DIOULA", "ANGLAIS"]
+        tarifConsultationBase:
+          type: number
+          multipleOf: 0.01
+          minimum: 0
+          maximum: 1000000
+          nullable: true
+          example: 25000.00
+        accepteDomicile:
+          type: boolean
+          example: true
+        accepteTeleconsultation:
+          type: boolean
+          example: true
+        accepteclinique:
+          type: boolean
+          example: true
+        cliniqueId:
+          type: string
+          format: uuid
+          nullable: true
+          example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+
+    # ============================================================================
+    # SCHÉMAS DE RÉPONSE STANDARDISÉS
+    # ============================================================================
+
+    # Réponse de mise à jour profil médecin
+    ReponseMiseAJourProfilMedecin:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Profil médecin mis à jour avec succès"
+        data:
+          type: object
+          properties:
+            medecin:
+              $ref: '#/components/schemas/MedecinProfileComplet'
+            updateInfo:
+              $ref: '#/components/schemas/InfoMiseAJourAdmin'
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+      required:
+        - success
+        - message
+        - data
+        - timestamp
+
+    # Réponse de liste des documents
+    ReponseListeDocuments:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Documents récupérés avec succès"
+        data:
+          type: object
+          properties:
+            medecin:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                nom:
+                  type: string
+                prenom:
+                  type: string
+            documents:
+              $ref: '#/components/schemas/DocumentsParType'
+            statistiques:
+              $ref: '#/components/schemas/StatistiquesDocuments'
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+      required:
+        - success
+        - message
+        - data
+        - timestamp

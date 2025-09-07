@@ -1,0 +1,388 @@
+openapi: 3.0.0
+paths:
+  /v1/medecins/upload-photo:
+    post:
+      tags:
+        - Médecins
+      summary: Upload de photo de profil pour médecins validés
+      description: |
+        Upload sécurisé de photo de profil pour médecins validés uniquement :
+        - **Formats acceptés** : JPEG, JPG, PNG, WebP
+        - **Taille maximale** : 5 MB
+        - **Dimensions** : 200x200 à 2000x2000 pixels
+        - **Stockage local** sécurisé avec URLs générées automatiquement
+        - **Remplacement automatique** de l'ancienne photo
+        
+        ⚠️ **Restriction** : Seuls les médecins avec statut VALIDE peuvent uploader une photo.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: "Fichier image de la photo de profil"
+              required:
+                - photo
+            encoding:
+              photo:
+                contentType: image/jpeg, image/jpg, image/png, image/webp
+      responses:
+        '200':
+          description: Photo uploadée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Photo de profil uploadée avec succès"
+                  data:
+                    $ref: '#/components/schemas/PhotoUploadResponse'
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+        '400':
+          description: Erreur de validation du fichier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                no_file:
+                  summary: Aucun fichier fourni
+                  value:
+                    success: false
+                    error: "NO_FILE_PROVIDED"
+                    message: "Aucun fichier fourni. Veuillez sélectionner une photo."
+                file_too_large:
+                  summary: Fichier trop volumineux
+                  value:
+                    success: false
+                    error: "FILE_TOO_LARGE"
+                    message: "Fichier trop volumineux. Taille maximale: 5MB"
+                invalid_format:
+                  summary: Format non supporté
+                  value:
+                    success: false
+                    error: "INVALID_FORMAT"
+                    message: "Format de fichier non supporté. Utilisez JPEG, PNG ou WebP"
+                dimensions_invalid:
+                  summary: Dimensions invalides
+                  value:
+                    success: false
+                    error: "INVALID_DIMENSIONS"
+                    message: "Image trop petite. Dimensions minimales: 200x200 pixels"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Accès refusé - Médecin non validé ou rôle insuffisant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_validated:
+                  summary: Médecin non validé
+                  value:
+                    success: false
+                    error: "MEDECIN_NOT_VALIDATED"
+                    message: "Upload de photo réservé aux médecins validés"
+                insufficient_role:
+                  summary: Rôle insuffisant
+                  value:
+                    success: false
+                    error: "INSUFFICIENT_ROLE"
+                    message: "Accès réservé aux médecins"
+        '404':
+          description: Profil médecin non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    get:
+      tags:
+        - Médecins
+      summary: Récupérer les informations de la photo de profil actuelle
+      description: |
+        Consultation des informations de la photo de profil du médecin :
+        - **Métadonnées** : nom fichier, taille, format, date upload
+        - **URL d'accès** public générée automatiquement
+        - **Statut d'autorisation** : peut uploader selon validation
+        - **Limites** : contraintes techniques pour uploads futurs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Informations photo récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Informations photo récupérées"
+                  data:
+                    $ref: '#/components/schemas/PhotoInfoResponse'
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Accès refusé - Rôle médecin requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Profil médecin non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      tags:
+        - Médecins
+      summary: Supprimer la photo de profil
+      description: |
+        Suppression définitive de la photo de profil actuelle :
+        - **Suppression physique** du fichier sur le serveur
+        - **Mise à jour** immédiate du profil médecin
+        - **Impact** : photo non visible par les patients
+        
+        ⚠️ **Restriction** : Seuls les médecins validés peuvent supprimer leur photo.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Photo supprimée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Photo de profil supprimée avec succès"
+                  data:
+                    $ref: '#/components/schemas/PhotoDeleteResponse'
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Accès refusé - Médecin non validé ou rôle insuffisant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Aucune photo à supprimer ou profil non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                no_photo:
+                  summary: Aucune photo à supprimer
+                  value:
+                    success: false
+                    error: "NO_PHOTO_TO_DELETE"
+                    message: "Aucune photo de profil à supprimer"
+                profile_not_found:
+                  summary: Profil non trouvé
+                  value:
+                    success: false
+                    error: "PROFILE_NOT_FOUND"
+                    message: "Profil médecin non trouvé"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    PhotoUploadResponse:
+      type: object
+      description: Réponse après upload réussi de photo
+      properties:
+        photo:
+          $ref: '#/components/schemas/PhotoMetadata'
+        actions_effectuees:
+          type: object
+          properties:
+            nouvelle_photo_uploadee:
+              type: boolean
+              example: true
+            ancienne_photo_supprimee:
+              type: boolean
+              example: true
+              description: "Indique si une ancienne photo a été remplacée"
+            profil_mis_a_jour:
+              type: boolean
+              example: true
+        informations:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "Votre photo de profil a été mise à jour avec succès"
+            visibilite:
+              type: string
+              example: "Visible immédiatement par les patients"
+            recommandations:
+              type: array
+              items:
+                type: string
+              example: [
+                "Utilisez une photo professionnelle et souriante",
+                "Assurez-vous que votre visage est clairement visible",
+                "Évitez les photos floues ou mal éclairées"
+              ]
+      required:
+        - photo
+        - actions_effectuees
+        - informations
+
+    PhotoInfoResponse:
+      type: object
+      description: Informations sur la photo de profil actuelle
+      properties:
+        photo_actuelle:
+          allOf:
+            - $ref: '#/components/schemas/PhotoMetadata'
+            - type: object
+              nullable: true
+              description: "null si aucune photo uploadée"
+        peut_uploader:
+          type: boolean
+          example: true
+          description: "Le médecin peut-il uploader une photo (statut VALIDE)"
+        statut_validation:
+          $ref: '#/components/schemas/StatutValidationMedecin'
+        limites:
+          $ref: '#/components/schemas/PhotoUploadLimits'
+      required:
+        - peut_uploader
+        - statut_validation
+        - limites
+
+    PhotoDeleteResponse:
+      type: object
+      description: Réponse après suppression de photo
+      properties:
+        photo_supprimee:
+          type: object
+          properties:
+            nom_fichier:
+              type: string
+              example: "photo-profil-5-1704461422123-profile.jpg"
+            fichier_supprime_du_stockage:
+              type: boolean
+              example: true
+              description: "Confirme la suppression physique du fichier"
+        informations:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "Votre photo de profil a été supprimée"
+            impact:
+              type: string
+              example: "Les patients ne verront plus votre photo"
+            recommandation:
+              type: string
+              example: "Considérez uploader une nouvelle photo professionnelle"
+      required:
+        - photo_supprimee
+        - informations
+
+    PhotoMetadata:
+      type: object
+      description: Métadonnées complètes d'une photo de profil
+      properties:
+        id:
+          type: string
+          example: "photo_profil_123456789"
+          description: "ID unique du fichier"
+        nom_fichier:
+          type: string
+          example: "photo-profil-5-1704461422123-profile.jpg"
+          description: "Nom du fichier physique"
+        taille:
+          type: integer
+          example: 524288
+          description: "Taille en bytes"
+        tailleLisible:
+          type: string
+          example: "512.0 KB"
+          description: "Taille formatée pour affichage"
+        mime_type:
+          type: string
+          enum: [image/jpeg, image/jpg, image/png, image/webp]
+          example: "image/jpeg"
+        upload_date:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+        url:
+          type: string
+          format: uri
+          example: "http://localhost:3000/files/uploads/photos/profil/photo-profil-5-1704461422123-profile.jpg"
+          description: "URL publique pour accéder à la photo"
+      required:
+        - id
+        - nom_fichier
+        - taille
+        - mime_type
+        - upload_date
+        - url
+
+    PhotoUploadLimits:
+      type: object
+      description: Contraintes techniques pour l'upload de photos
+      properties:
+        taille_max:
+          type: string
+          example: "5 MB"
+        formats_acceptes:
+          type: array
+          items:
+            type: string
+          example: ["JPEG", "JPG", "PNG", "WebP"]
+        dimensions_min:
+          type: string
+          example: "200x200 pixels"
+        dimensions_max:
+          type: string
+          example: "2000x2000 pixels"
+      required:
+        - taille_max
+        - formats_acceptes
+        - dimensions_min
+        - dimensions_max

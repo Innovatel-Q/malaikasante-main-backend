@@ -3,8 +3,9 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 
-// Import du router principal
+// Import des routers
 const v1Router = require('./routes/v1');
+const filesRouter = require('./routes/files');
 
 const app = express();
 
@@ -53,6 +54,9 @@ app.use((err, req, res, next) => {
 
 // Routes principales API v1
 app.use('/v1', v1Router);
+
+// Route sécurisée pour servir les fichiers uploadés
+app.use('/files', filesRouter);
 
 // Route de base pour vérifier que l'API fonctionne
 app.get('/', (req, res) => {

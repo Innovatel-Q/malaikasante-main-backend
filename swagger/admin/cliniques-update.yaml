@@ -1,0 +1,757 @@
+openapi: 3.0.0
+info:
+  title: Admin Clinic Update API
+  description: Modification complète des cliniques par les administrateurs
+  version: 1.0.0
+
+paths:
+  /v1/admin/cliniques/{cliniqueId}:
+    put:
+      tags:
+        - Administration
+      summary: Modifier les informations d'une clinique
+      description: |
+        Permet aux administrateurs de modifier toutes les informations d'une clinique existante.
+        
+        **🏥 Fonctionnalités :**
+        - ✅ **Mise à jour partielle** : Seuls les champs fournis sont modifiés
+        - 🔒 **Validation stricte** : Vérification d'unicité (nom, email)
+        - 🗺️ **Géolocalisation** : Mise à jour coordonnées GPS
+        - 📅 **Horaires flexibles** : Modification des heures d'ouverture
+        - 🏥 **Gestion services** : Ajout/suppression services médicaux
+        - 🔄 **Activation/Désactivation** : Contrôle statut avec impact médecins
+        - 📊 **Traçabilité complète** : Historique des modifications admin
+        
+        **📋 Données modifiables :**
+        
+        **Informations de base** :
+        - Nom (vérifié unique par ville)
+        - Adresse complète et ville
+        - Contact (téléphone, email)
+        
+        **Informations avancées** :
+        - Coordonnées GPS (latitude/longitude)
+        - Horaires d'ouverture détaillés
+        - Services médicaux proposés
+        - Statut actif/inactif
+        
+        **🔄 Workflow :**
+        1. Admin sélectionne clinique et champs à modifier
+        2. Système valide unicité si nom/email changent
+        3. Validation cohérence GPS et horaires
+        4. Transaction atomique de mise à jour
+        5. Calcul impact sur médecins affiliés
+        6. Réponse avec données actualisées
+        
+        **⚠️ Contraintes de sécurité :**
+        - Nom unique par ville (sauf clinique courante)
+        - Email unique sur toute la plateforme
+        - Coordonnées GPS cohérentes (ensemble ou nulles)
+        - Validation stricte horaires et services
+        - Impact désactivation évalué (médecins affiliés)
+        
+        **🔔 Impacts de la désactivation :**
+        - Médecins affiliés peuvent devenir invisibles
+        - Avertissements automatiques générés
+        - Statistiques d'impact calculées
+        
+        **User Stories :** Admin-US10 (Modification cliniques)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: cliniqueId
+          in: path
+          description: ID unique de la clinique à modifier
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+
+      requestBody:
+        required: true
+        description: |
+          **Mise à jour partielle** : Tous les champs sont optionnels.
+          
+          ⚠️ **IMPORTANT** : Seuls les champs fournis seront modifiés. Fournir `null` supprime explicitement la valeur.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                # === INFORMATIONS DE BASE ===
+                nom:
+                  type: string
+                  minLength: 3
+                  maxLength: 200
+                  description: |
+                    Nouveau nom de la clinique
+                    
+                    **⚠️ Unicité requise** : Vérifié dans la ville (courante ou nouvelle)
+                    **Contraintes :**
+                    - 3-200 caractères
+                    - Unique dans la ville spécifiée
+                  example: "Clinique Moderne d'Abidjan"
+                
+                adresse:
+                  type: string
+                  minLength: 10
+                  maxLength: 1000
+                  description: |
+                    Nouvelle adresse complète
+                    
+                    **Format recommandé :**
+                    Numéro, rue, quartier, références géographiques
+                  example: "Avenue Chardy, Cocody, près de l'université"
+                
+                ville:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: |
+                    Nouvelle ville d'implantation
+                    
+                    **Impact :** Utilisé pour vérifier l'unicité du nom
+                    **Contraintes :** 2-100 caractères
+                  example: "Yamoussoukro"
+                
+                # === INFORMATIONS DE CONTACT ===
+                telephone:
+                  type: string
+                  pattern: '^(\+225|0)[0-9]{8,10}$'
+                  nullable: true
+                  description: |
+                    Nouveau numéro de téléphone (ou null pour supprimer)
+                    
+                    **Formats acceptés :**
+                    - `+225XXXXXXXX` (international)
+                    - `0XXXXXXXXX` (national)
+                    - `null` pour supprimer
+                  example: "+22531567890"
+                
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                  nullable: true
+                  description: |
+                    Nouvelle adresse email (ou null pour supprimer)
+                    
+                    **⚠️ Unicité requise** : Vérifié sur toute la plateforme
+                    **Valeurs :** email valide ou null pour supprimer
+                  example: "nouvelle-adresse@clinique.ci"
+                
+                # === GÉOLOCALISATION ===
+                latitude:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                  nullable: true
+                  description: |
+                    Nouvelle latitude GPS (ou null pour supprimer)
+                    
+                    **⚠️ Cohérence requise** : Si modifiée, longitude doit être fournie
+                    **Valeurs :** nombre décimal ou null
+                  example: 6.8205
+                
+                longitude:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+                  nullable: true
+                  description: |
+                    Nouvelle longitude GPS (ou null pour supprimer)
+                    
+                    **⚠️ Cohérence requise** : Si modifiée, latitude doit être fournie
+                    **Valeurs :** nombre décimal ou null
+                  example: -5.2767
+                
+                # === HORAIRES D'OUVERTURE ===
+                horaires:
+                  type: object
+                  nullable: true
+                  description: |
+                    Nouveaux horaires d'ouverture (ou null pour supprimer)
+                    
+                    **Structure :** `{ "JOUR": { "ouverture": "HH:mm", "fermeture": "HH:mm" } }`
+                    **Jours valides :** LUNDI, MARDI, MERCREDI, JEUDI, VENDREDI, SAMEDI, DIMANCHE
+                    **Valeur null :** Supprime tous les horaires
+                  properties:
+                    LUNDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                          example: "08:30"
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                          example: "18:00"
+                      required: [ouverture, fermeture]
+                    MARDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    MERCREDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    JEUDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    VENDREDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    SAMEDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    DIMANCHE:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                  example:
+                    LUNDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    MARDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    MERCREDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    JEUDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    VENDREDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                
+                # === SERVICES MÉDICAUX ===
+                services:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - CONSULTATION_GENERALE
+                      - URGENCES
+                      - CHIRURGIE
+                      - MATERNITE
+                      - PEDIATRIE
+                      - CARDIOLOGIE
+                      - RADIOLOGIE
+                      - LABORATOIRE
+                      - PHARMACIE
+                      - DENTAIRE
+                      - OPHTALMOLOGIE
+                      - DERMATOLOGIE
+                      - GYNECOLOGIE
+                      - PSYCHIATRIE
+                      - KINESITHERAPIE
+                      - DIALYSE
+                      - ONCOLOGIE
+                  uniqueItems: true
+                  nullable: true
+                  description: |
+                    Nouveaux services médicaux (ou null pour supprimer)
+                    
+                    **Usage :** Remplace complètement la liste existante
+                    **Validation :** Uniquement services de la liste officielle
+                    **Valeur null :** Supprime tous les services
+                  example: ["CONSULTATION_GENERALE", "URGENCES", "CARDIOLOGIE", "LABORATOIRE"]
+                
+                # === STATUT ===
+                active:
+                  type: boolean
+                  description: |
+                    Nouveau statut actif/inactif de la clinique
+                    
+                    **Impact désactivation (active: false) :**
+                    - Médecins affiliés peuvent devenir invisibles
+                    - Avertissements générés automatiquement
+                    - Statistiques d'impact calculées
+                    
+                    **Impact activation (active: true) :**
+                    - Clinique redevient visible
+                    - Médecins affiliés redeviennent actifs
+                  example: true
+
+            examples:
+              modification_complete:
+                summary: Modification complète d'une clinique
+                description: Exemple de mise à jour de toutes les informations
+                value:
+                  nom: "Clinique Moderne d'Abidjan"
+                  adresse: "Avenue Chardy, Cocody, près de l'université FHB"
+                  ville: "Abidjan"
+                  telephone: "+22521345678"
+                  email: "contact@clinique-moderne.ci"
+                  latitude: 5.3447
+                  longitude: -4.0248
+                  horaires:
+                    LUNDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    MARDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    MERCREDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    JEUDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    VENDREDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                    SAMEDI: { "ouverture": "09:00", "fermeture": "14:00" }
+                  services: ["CONSULTATION_GENERALE", "URGENCES", "CARDIOLOGIE", "RADIOLOGIE", "LABORATOIRE", "PHARMACIE"]
+                  active: true
+              
+              changement_nom_ville:
+                summary: Changement de nom et déménagement
+                description: Modification nom et ville avec validation unicité
+                value:
+                  nom: "Polyclinique de Yamoussoukro"
+                  ville: "Yamoussoukro"
+                  adresse: "Avenue Houphouët-Boigny, centre-ville, face à la préfecture"
+                  telephone: "+22530789456"
+              
+              mise_a_jour_contact:
+                summary: Mise à jour des informations de contact
+                description: Modification uniquement téléphone et email
+                value:
+                  telephone: "+22507123456"
+                  email: "nouveau-contact@clinique.ci"
+              
+              ajout_geolocalisation:
+                summary: Ajout de coordonnées GPS
+                description: Ajout géolocalisation pour clinique existante
+                value:
+                  latitude: 5.3157
+                  longitude: -4.0217
+              
+              suppression_email_horaires:
+                summary: Suppression email et horaires
+                description: Suppression explicite avec null
+                value:
+                  email: null
+                  horaires: null
+              
+              desactivation_clinique:
+                summary: Désactivation temporaire
+                description: Mise hors service temporaire
+                value:
+                  active: false
+              
+              nouveaux_services:
+                summary: Mise à jour des services médicaux
+                description: Ajout de nouveaux services proposés
+                value:
+                  services: ["CONSULTATION_GENERALE", "URGENCES", "MATERNITE", "PEDIATRIE", "GYNECOLOGIE", "LABORATOIRE"]
+
+      responses:
+        '200':
+          description: Clinique modifiée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Clinique modifiée avec succès"
+                  data:
+                    type: object
+                    properties:
+                      clinique:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                            example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom:
+                            type: string
+                            example: "Clinique Moderne d'Abidjan"
+                          adresse:
+                            type: string
+                            example: "Avenue Chardy, Cocody, près de l'université"
+                          ville:
+                            type: string
+                            example: "Abidjan"
+                          telephone:
+                            type: string
+                            nullable: true
+                            example: "+22521345678"
+                          email:
+                            type: string
+                            nullable: true
+                            example: "contact@clinique-moderne.ci"
+                          latitude:
+                            type: number
+                            nullable: true
+                            example: 5.3447
+                          longitude:
+                            type: number
+                            nullable: true
+                            example: -4.0248
+                          horaires:
+                            type: object
+                            nullable: true
+                            example:
+                              LUNDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                              MARDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                          services:
+                            type: array
+                            nullable: true
+                            items:
+                              type: string
+                            example: ["CONSULTATION_GENERALE", "URGENCES", "CARDIOLOGIE", "LABORATOIRE"]
+                          active:
+                            type: boolean
+                            example: true
+                          createdAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-10T10:30:22.123Z"
+                      medecinsAffilies:
+                        type: array
+                        description: "Liste des médecins affectés par les modifications"
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                            nom:
+                              type: string
+                              example: "Dr Fatou Diabaté"
+                      updateInfo:
+                        type: object
+                        description: "Informations sur la mise à jour effectuée"
+                        properties:
+                          fieldsUpdated:
+                            type: array
+                            items:
+                              type: string
+                            description: "Liste des champs modifiés"
+                            example: ["nom", "adresse", "email", "horaires", "services"]
+                          updatedBy:
+                            type: string
+                            example: "Admin Marie Kouassi"
+                          updatedAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                          previousActive:
+                            type: boolean
+                            description: "Statut actif avant modification"
+                            example: true
+                          currentActive:
+                            type: boolean
+                            description: "Statut actif après modification"
+                            example: true
+                      statistiques:
+                        type: object
+                        description: "Statistiques après modification"
+                        properties:
+                          totalMedecinsAffilies:
+                            type: integer
+                            example: 12
+                          totalCliniquesActives:
+                            type: integer
+                            example: 87
+                          cliniqueActive:
+                            type: boolean
+                            example: true
+                      avertissements:
+                        type: array
+                        items:
+                          type: string
+                        description: "Avertissements sur les impacts (si désactivation)"
+                        example: []
+                      actions:
+                        type: object
+                        description: "Actions disponibles après modification"
+                        properties:
+                          voirDetails:
+                            type: string
+                            example: "GET /v1/admin/cliniques/c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          gererMedecins:
+                            type: string
+                            example: "GET /v1/admin/cliniques/c3d4e5f6-g7h8-9012-cdef-123456789012/medecins"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                modification_reussie:
+                  summary: Modification réussie avec traçabilité
+                  value:
+                    success: true
+                    message: "Clinique modifiée avec succès"
+                    data:
+                      clinique:
+                        id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                        nom: "Clinique Moderne d'Abidjan"
+                        adresse: "Avenue Chardy, Cocody, près de l'université"
+                        ville: "Abidjan"
+                        telephone: "+22521345678"
+                        email: "contact@clinique-moderne.ci"
+                        latitude: 5.3447
+                        longitude: -4.0248
+                        horaires:
+                          LUNDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                          MARDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                          MERCREDI: { "ouverture": "08:30", "fermeture": "18:00" }
+                        services: ["CONSULTATION_GENERALE", "URGENCES", "CARDIOLOGIE", "LABORATOIRE"]
+                        active: true
+                        createdAt: "2024-01-10T10:30:22.123Z"
+                      medecinsAffilies:
+                        - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                          nom: "Dr Fatou Diabaté"
+                        - id: "f1g2h3i4-j5k6-7890-fghi-ef1234567890"
+                          nom: "Dr Ahmed Kone"
+                      updateInfo:
+                        fieldsUpdated: ["nom", "adresse", "email", "horaires", "services"]
+                        updatedBy: "Admin Marie Kouassi"
+                        updatedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                        previousActive: true
+                        currentActive: true
+                      statistiques:
+                        totalMedecinsAffilies: 12
+                        totalCliniquesActives: 87
+                        cliniqueActive: true
+                      avertissements: []
+                      actions:
+                        voirDetails: "GET /v1/admin/cliniques/c3d4e5f6-g7h8-9012-cdef-123456789012"
+                        gererMedecins: "GET /v1/admin/cliniques/c3d4e5f6-g7h8-9012-cdef-123456789012/medecins"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                desactivation_avec_avertissements:
+                  summary: Désactivation avec avertissements
+                  value:
+                    success: true
+                    message: "Clinique modifiée avec succès"
+                    data:
+                      clinique:
+                        id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                        nom: "Clinique Temporairement Fermée"
+                        active: false
+                      medecinsAffilies:
+                        - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                          nom: "Dr Fatou Diabaté"
+                      updateInfo:
+                        fieldsUpdated: ["active"]
+                        updatedBy: "Admin Marie Kouassi"
+                        updatedAt: "2024-01-15T14:30:22.123Z"
+                        previousActive: true
+                        currentActive: false
+                      statistiques:
+                        totalMedecinsAffilies: 8
+                        cliniqueActive: false
+                      avertissements: [
+                        "⚠️ Cette clinique a 8 médecin(s) affilié(s)",
+                        "La désactivation peut affecter leur visibilité",
+                        "Considérez informer les médecins concernés"
+                      ]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Requête invalide - Données malformées ou contraintes violées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                aucune_modification:
+                  summary: Aucune donnée de modification fournie
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Aucune modification fournie"
+                    details:
+                      code: "NO_UPDATE_DATA"
+                      message: "Veuillez fournir au moins un champ à modifier"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                nom_deja_utilise:
+                  summary: Nom déjà utilisé dans la ville
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Une clinique avec ce nom existe déjà dans cette ville"
+                    details:
+                      code: "CLINIQUE_NAME_EXISTS"
+                      field: "nom"
+                      conflict:
+                        nom: "Clinique Existante"
+                        ville: "Abidjan"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                email_deja_utilise:
+                  summary: Email déjà utilisé
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Cette adresse email est déjà utilisée"
+                    details:
+                      code: "EMAIL_ALREADY_EXISTS"
+                      field: "email"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                coordonnees_gps_incoherentes:
+                  summary: Coordonnées GPS incohérentes
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Latitude et longitude doivent être fournies ensemble"
+                    details:
+                      code: "INCOMPLETE_GPS_COORDINATES"
+                      message: "Si vous modifiez les coordonnées GPS, latitude ET longitude sont requises"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                horaires_invalides:
+                  summary: Format d'horaires incorrect
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Horaires incomplets pour MERCREDI"
+                    details:
+                      code: "INCOMPLETE_HOURS"
+                      field: "horaires"
+                      day: "MERCREDI"
+                      required: ["ouverture", "fermeture"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                services_invalides:
+                  summary: Services non reconnus
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Services non reconnus"
+                    details:
+                      code: "INVALID_SERVICES"
+                      field: "services"
+                      invalidServices: ["SERVICE_INEXISTANT", "AUTRE_INVALIDE"]
+                      availableServices: ["CONSULTATION_GENERALE", "URGENCES", "CHIRURGIE"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '403':
+          description: Accès refusé - Réservé aux administrateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "FORBIDDEN"
+                message: "Accès réservé aux administrateurs"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '404':
+          description: Clinique non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "NOT_FOUND"
+                message: "Clinique non trouvée"
+                details:
+                  code: "CLINIQUE_NOT_FOUND"
+                  cliniqueId: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ERROR_CODE"
+        message:
+          type: string
+          example: "Description de l'erreur"
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+
+  responses:
+    Unauthorized:
+      description: Non authentifié - Token manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "Token d'authentification requis"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    ServerError:
+      description: Erreur interne du serveur
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "INTERNAL_SERVER_ERROR"
+            message: "Erreur interne lors de la modification de la clinique"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT d'administrateur obtenu lors de la connexion.
+        Format: `Authorization: Bearer <admin_token>`

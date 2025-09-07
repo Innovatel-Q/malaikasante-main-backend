@@ -1,0 +1,450 @@
+openapi: 3.0.0
+paths:
+  /v1/medecins/availability:
+    put:
+      tags:
+        - Médecins
+      summary: Gérer les disponibilités et congés médecin
+      description: |
+        API polyvalente pour la gestion des disponibilités d'un médecin :
+        - **UPDATE_HORAIRES** : Créer ou modifier les créneaux de consultation
+        - **AJOUTER_CONGE** : Déclarer une période de congé avec impact sur RDV
+        - **SUPPRIMER_CONGE** : Annuler un congé planifié
+        - **MODIFIER_STATUT** : Changer statut acceptation nouveaux patients
+        
+        Toutes les modifications impactent immédiatement la visibilité pour les patients.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvailabilityManagementRequest'
+            examples:
+              update_horaires:
+                summary: Mise à jour des horaires de consultation
+                value:
+                  action: "UPDATE_HORAIRES"
+                  horaires:
+                    - id: "existing-horaire-id"
+                      jourSemaine: "LUNDI"
+                      heureDebut: "08:00"
+                      heureFin: "12:00"
+                      typeConsultation: "CLINIQUE"
+                      actif: true
+                    - jourSemaine: "MARDI"
+                      heureDebut: "14:00"
+                      heureFin: "18:00"
+                      typeConsultation: "DOMICILE"
+                      actif: true
+              ajouter_conge:
+                summary: Déclaration d'un congé
+                value:
+                  action: "AJOUTER_CONGE"
+                  conge:
+                    dateDebut: "2024-02-15"
+                    dateFin: "2024-02-22"
+                    motif: "Congés annuels"
+                    typeConge: "VACANCES"
+                    recurrent: false
+                    annulationRdvAutorise: true
+              modifier_statut:
+                summary: Modification du statut d'acceptation
+                value:
+                  action: "MODIFIER_STATUT"
+                  statutModifications:
+                    accepteNouveauxPatients: false
+                    messageIndisponibilite: "Indisponible temporairement pour formations"
+                    delaiMoyenReponse: 48
+      responses:
+        '200':
+          description: Disponibilités mises à jour avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Horaires mis à jour avec succès"
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/HorairesUpdateResponse'
+                      - $ref: '#/components/schemas/CongeAddResponse'
+                      - $ref: '#/components/schemas/CongeDeleteResponse'
+                      - $ref: '#/components/schemas/StatutUpdateResponse'
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+        '400':
+          description: Erreur de validation des données
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_dates:
+                  summary: Dates invalides pour un congé
+                  value:
+                    success: false
+                    error: "INVALID_DATES"
+                    message: "La date de fin doit être postérieure à la date de début"
+                conflicting_leave:
+                  summary: Conflit avec un congé existant
+                  value:
+                    success: false
+                    error: "CONFLICTING_LEAVE"
+                    message: "Ce congé entre en conflit avec un congé existant"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Accès refusé - Rôle médecin requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Profil médecin non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    AvailabilityManagementRequest:
+      type: object
+      discriminator:
+        propertyName: action
+        mapping:
+          UPDATE_HORAIRES: '#/components/schemas/UpdateHorairesRequest'
+          AJOUTER_CONGE: '#/components/schemas/AjouterCongeRequest'
+          SUPPRIMER_CONGE: '#/components/schemas/SupprimerCongeRequest'
+          MODIFIER_STATUT: '#/components/schemas/ModifierStatutRequest'
+      properties:
+        action:
+          type: string
+          enum: [UPDATE_HORAIRES, AJOUTER_CONGE, SUPPRIMER_CONGE, MODIFIER_STATUT]
+          description: "Type d'action à effectuer"
+      required:
+        - action
+
+    UpdateHorairesRequest:
+      allOf:
+        - $ref: '#/components/schemas/AvailabilityManagementRequest'
+        - type: object
+          properties:
+            horaires:
+              type: array
+              items:
+                $ref: '#/components/schemas/HoraireConsultation'
+              minItems: 1
+              description: "Liste des créneaux horaires à créer ou modifier"
+          required:
+            - horaires
+
+    AjouterCongeRequest:
+      allOf:
+        - $ref: '#/components/schemas/AvailabilityManagementRequest'
+        - type: object
+          properties:
+            conge:
+              $ref: '#/components/schemas/CongeData'
+          required:
+            - conge
+
+    SupprimerCongeRequest:
+      allOf:
+        - $ref: '#/components/schemas/AvailabilityManagementRequest'
+        - type: object
+          properties:
+            congeId:
+              type: string
+              format: uuid
+              description: "ID du congé à supprimer"
+              example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+          required:
+            - congeId
+
+    ModifierStatutRequest:
+      allOf:
+        - $ref: '#/components/schemas/AvailabilityManagementRequest'
+        - type: object
+          properties:
+            statutModifications:
+              $ref: '#/components/schemas/StatutModifications'
+          required:
+            - statutModifications
+
+    HoraireConsultation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID pour mise à jour (null pour création)"
+          example: "h1a2b3c4-d5e6-7890-abcd-ef1234567890"
+        jourSemaine:
+          type: string
+          enum: [LUNDI, MARDI, MERCREDI, JEUDI, VENDREDI, SAMEDI, DIMANCHE]
+          example: "LUNDI"
+        heureDebut:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          example: "08:00"
+          description: "Heure de début au format HH:MM"
+        heureFin:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          example: "12:00"
+          description: "Heure de fin au format HH:MM"
+        typeConsultation:
+          type: string
+          enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+          example: "CLINIQUE"
+        actif:
+          type: boolean
+          default: true
+          description: "Créneau actif ou désactivé"
+      required:
+        - jourSemaine
+        - heureDebut
+        - heureFin
+        - typeConsultation
+
+    CongeData:
+      type: object
+      properties:
+        dateDebut:
+          type: string
+          format: date
+          example: "2024-02-15"
+          description: "Date de début du congé"
+        dateFin:
+          type: string
+          format: date
+          example: "2024-02-22"
+          description: "Date de fin du congé"
+        motif:
+          type: string
+          maxLength: 500
+          example: "Congés annuels"
+          description: "Motif du congé"
+        typeConge:
+          type: string
+          enum: [VACANCES, MALADIE, FORMATION, PERSONNEL, AUTRE]
+          example: "VACANCES"
+        recurrent:
+          type: boolean
+          default: false
+          description: "Congé récurrent (chaque année)"
+        annulationRdvAutorise:
+          type: boolean
+          default: false
+          description: "Autoriser l'annulation automatique des RDV existants"
+      required:
+        - dateDebut
+        - dateFin
+        - typeConge
+
+    StatutModifications:
+      type: object
+      properties:
+        accepteNouveauxPatients:
+          type: boolean
+          description: "Accepter de nouveaux patients"
+          example: true
+        messageIndisponibilite:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: "Message d'indisponibilité pour les patients"
+          example: "Indisponible temporairement pour formations"
+        delaiMoyenReponse:
+          type: number
+          minimum: 1
+          maximum: 168
+          description: "Délai moyen de réponse en heures"
+          example: 24
+
+    HorairesUpdateResponse:
+      type: object
+      properties:
+        horairesModifies:
+          type: integer
+          example: 2
+          description: "Nombre de créneaux modifiés"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+                enum: [created, updated]
+                example: "created"
+              horaire:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  jourSemaine:
+                    type: string
+                    example: "LUNDI"
+                  heureDebut:
+                    type: string
+                    example: "08:00"
+                  heureFin:
+                    type: string
+                    example: "12:00"
+                  typeConsultation:
+                    type: string
+                    example: "CLINIQUE"
+        recommendations:
+          type: array
+          items:
+            type: string
+          example: [
+            "Vos nouveaux horaires sont immédiatement visibles par les patients",
+            "Vérifiez que vos créneaux correspondent à votre planning réel"
+          ]
+
+    CongeAddResponse:
+      type: object
+      properties:
+        conge:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+            dateDebut:
+              type: string
+              format: date
+              example: "2024-02-15"
+            dateFin:
+              type: string
+              format: date
+              example: "2024-02-22"
+            dureeJours:
+              type: integer
+              example: 7
+            motif:
+              type: string
+              example: "Congés annuels"
+            typeConge:
+              type: string
+              example: "VACANCES"
+        impact:
+          type: object
+          properties:
+            rdvAnnules:
+              type: integer
+              example: 3
+              description: "Nombre de RDV annulés automatiquement"
+            nouvelleDemandeBloques:
+              type: boolean
+              example: true
+            notificationsEnvoyees:
+              type: boolean
+              example: true
+        prochaines_etapes:
+          type: array
+          items:
+            type: string
+          example: [
+            "Votre congé est enregistré et visible dans votre planning",
+            "3 rendez-vous ont été annulés automatiquement",
+            "Les patients ne peuvent plus prendre RDV sur cette période"
+          ]
+
+    CongeDeleteResponse:
+      type: object
+      properties:
+        congeSupprime:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            dateDebut:
+              type: string
+              format: date
+            dateFin:
+              type: string
+              format: date
+            dureeJours:
+              type: integer
+              example: 7
+            motif:
+              type: string
+        impact:
+          type: object
+          properties:
+            creneauxLiberes:
+              type: boolean
+              example: true
+            nouvellesDemdesAutorisees:
+              type: boolean
+              example: true
+        prochaines_etapes:
+          type: array
+          items:
+            type: string
+          example: [
+            "Les créneaux de cette période sont maintenant disponibles",
+            "Les patients peuvent prendre RDV sur ces dates"
+          ]
+
+    StatutUpdateResponse:
+      type: object
+      properties:
+        nouveauxParametres:
+          type: object
+          properties:
+            accepteNouveauxPatients:
+              type: boolean
+              example: true
+            messageIndisponibilite:
+              type: string
+              nullable: true
+              example: "Indisponible pour formation"
+            delaiMoyenReponse:
+              type: number
+              example: 24
+        changementsEffectues:
+          type: array
+          items:
+            type: string
+          example: ["accepteNouveauxPatients", "delaiMoyenReponse"]
+        impact:
+          type: object
+          properties:
+            visibilitePatients:
+              type: boolean
+              example: true
+            nouvellesDemandes:
+              type: boolean
+              example: true
+            messageTousPatients:
+              type: boolean
+              example: false
+        prochaines_etapes:
+          type: array
+          items:
+            type: string
+          example: [
+            "Votre agenda est ouvert aux nouveaux patients",
+            "Nouveau délai de réponse affiché: 24h",
+            "Les changements sont immédiatement visibles par les patients"
+          ]

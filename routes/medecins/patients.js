@@ -219,7 +219,7 @@ router.get('/',
                 });
 
                 const noteMoyennePatient = evaluations.length > 0
-                    ? evaluations.reduce((sum, eval) => sum + eval.note, 0) / evaluations.length
+                    ? evaluations.reduce((sum, evaluation) => sum + evaluation.note, 0) / evaluations.length
                     : null;
 
                 return {

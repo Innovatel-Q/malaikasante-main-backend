@@ -1,0 +1,512 @@
+openapi: 3.0.0
+info:
+  title: Admin Doctors List API
+  description: Liste complète des médecins avec filtres avancés et statistiques
+  version: 1.0.0
+
+paths:
+  /v1/admin/doctors:
+    get:
+      tags:
+        - Administration
+      summary: Récupérer la liste complète des médecins
+      description: |
+        Endpoint complet pour consulter tous les médecins avec filtres avancés et statistiques.
+        
+        **Fonctionnalités :**
+        - 🔍 **Filtres avancés** : Statut validation, spécialité, statut compte, recherche textuelle
+        - 📄 **Pagination** : Contrôle page/limite
+        - 📊 **Statistiques** : Répartition par statut de validation
+        - 📅 **Tri intelligent** : EN_ATTENTE d'abord, puis par date d'inscription
+        - 📈 **Métriques activité** : Nombre de rendez-vous et consultations
+        
+        **User Stories :** Administrateurs-US1 (Gestion complète comptes médecins)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: page
+          in: query
+          description: Numéro de page pour la pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+        - name: statutValidation
+          in: query
+          description: Filtrer par statut de validation
+          required: false
+          schema:
+            type: string
+            enum: [EN_ATTENTE, VALIDE, REJETE]
+            example: VALIDE
+        - name: specialite
+          in: query
+          description: Filtrer par spécialité médicale
+          required: false
+          schema:
+            type: string
+            example: CARDIOLOGIE
+        - name: statut
+          in: query
+          description: Filtrer par statut du compte utilisateur
+          required: false
+          schema:
+            type: string
+            enum: [ACTIF, SUSPENDU, INACTIF]
+            example: ACTIF
+        - name: search
+          in: query
+          description: Recherche textuelle (nom, prénom, email, téléphone)
+          required: false
+          schema:
+            type: string
+            example: "Dr Kouassi"
+
+      responses:
+        '200':
+          description: Liste des médecins récupérée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Liste des médecins récupérée avec succès"
+                  data:
+                    type: object
+                    properties:
+                      medecins:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              example: "uuid-medecin-123"
+                            userId:
+                              type: string
+                              example: "uuid-user-456"
+                            informationsPersonnelles:
+                              type: object
+                              properties:
+                                nom:
+                                  type: string
+                                  example: "Diabaté"
+                                prenom:
+                                  type: string
+                                  example: "Dr Fatou"
+                                email:
+                                  type: string
+                                  example: "dr.fatou@example.com"
+                                telephone:
+                                  type: string
+                                  example: "0107080910"
+                            informationsProfessionnelles:
+                              type: object
+                              properties:
+                                numeroOrdre:
+                                  type: string
+                                  example: "CI123456"
+                                specialites:
+                                  type: array
+                                  items:
+                                    type: string
+                                  example: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+                                experienceAnnees:
+                                  type: integer
+                                  example: 8
+                                bio:
+                                  type: string
+                                  nullable: true
+                                  example: "Cardiologue expérimenté..."
+                                tarifConsultation:
+                                  type: number
+                                  example: 25000
+                            servicesOfferts:
+                              type: object
+                              properties:
+                                accepteDomicile:
+                                  type: boolean
+                                  example: false
+                                accepteTeleconsultation:
+                                  type: boolean
+                                  example: false
+                                accepteclinique:
+                                  type: boolean
+                                  example: true
+                            statutValidation:
+                              type: object
+                              properties:
+                                statut:
+                                  type: string
+                                  enum: [EN_ATTENTE, VALIDE, REJETE]
+                                  example: "VALIDE"
+                                dateValidation:
+                                  type: string
+                                  format: date-time
+                                  nullable: true
+                                  example: "2024-01-16T09:15:00Z"
+                                commentaireValidation:
+                                  type: string
+                                  nullable: true
+                                  example: "Dossier complet et conforme"
+                            activite:
+                              type: object
+                              properties:
+                                statutCompte:
+                                  type: string
+                                  example: "ACTIF"
+                                dateInscription:
+                                  type: string
+                                  format: date-time
+                                  example: "2024-01-15T10:30:00Z"
+                                joursDepuisInscription:
+                                  type: integer
+                                  example: 15
+                                nombreRendezVous:
+                                  type: integer
+                                  example: 23
+                                nombreConsultations:
+                                  type: integer
+                                  example: 18
+                      pagination:
+                        type: object
+                        properties:
+                          currentPage:
+                            type: integer
+                            example: 1
+                          totalPages:
+                            type: integer
+                            example: 5
+                          totalCount:
+                            type: integer
+                            example: 87
+                          limit:
+                            type: integer
+                            example: 20
+                          hasNextPage:
+                            type: boolean
+                            example: true
+                          hasPrevPage:
+                            type: boolean
+                            example: false
+                          itemsOnPage:
+                            type: integer
+                            example: 20
+                      statistiques:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                            example: 87
+                            description: "Nombre total de médecins"
+                          enAttente:
+                            type: integer
+                            example: 12
+                            description: "Médecins en attente de validation"
+                          valides:
+                            type: integer
+                            example: 72
+                            description: "Médecins validés"
+                          rejetes:
+                            type: integer
+                            example: 3
+                            description: "Médecins rejetés"
+                      filtres:
+                        type: object
+                        properties:
+                          statutValidation:
+                            type: string
+                            nullable: true
+                            example: null
+                          specialite:
+                            type: string
+                            nullable: true
+                            example: null
+                          statut:
+                            type: string
+                            nullable: true
+                            example: null
+                          search:
+                            type: string
+                            nullable: true
+                            example: null
+                        description: "Filtres appliqués dans la requête"
+                      actions:
+                        type: object
+                        properties:
+                          validateEndpoint:
+                            type: string
+                            example: "PUT /v1/admin/doctors/{id}/validate"
+                          profileEndpoint:
+                            type: string
+                            example: "GET /v1/admin/doctors/{id}/profile"
+                          documentsEndpoint:
+                            type: string
+                            example: "GET /v1/admin/doctors/{id}/documents"
+                      adminInfo:
+                        type: object
+                        properties:
+                          consultePar:
+                            type: string
+                            example: "Admin Pierre"
+                          consulteA:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:00Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                liste_complete:
+                  summary: Liste complète des médecins
+                  value:
+                    success: true
+                    message: "Liste des médecins récupérée avec succès"
+                    data:
+                      medecins: 
+                        - id: "uuid-medecin-123"
+                          userId: "uuid-user-456"
+                          informationsPersonnelles:
+                            nom: "Diabaté"
+                            prenom: "Dr Fatou"
+                            email: "dr.fatou@example.com"
+                            telephone: "0107080910"
+                          informationsProfessionnelles:
+                            numeroOrdre: "CI123456"
+                            specialites: ["CARDIOLOGIE"]
+                            experienceAnnees: 8
+                            bio: "Cardiologue expérimenté..."
+                            tarifConsultation: 25000
+                          servicesOfferts:
+                            accepteDomicile: false
+                            accepteTeleconsultation: false
+                            accepteclinique: true
+                          statutValidation:
+                            statut: "VALIDE"
+                            dateValidation: "2024-01-16T09:15:00Z"
+                            commentaireValidation: "Dossier complet et conforme"
+                          activite:
+                            statutCompte: "ACTIF"
+                            dateInscription: "2024-01-15T10:30:00Z"
+                            joursDepuisInscription: 15
+                            nombreRendezVous: 23
+                            nombreConsultations: 18
+                        - id: "uuid-medecin-789"
+                          userId: "uuid-user-012"
+                          informationsPersonnelles:
+                            nom: "Kouassi"
+                            prenom: "Dr Jean"
+                            email: "dr.jean@example.com"
+                            telephone: "0109080706"
+                          informationsProfessionnelles:
+                            numeroOrdre: "CI789012"
+                            specialites: ["PEDIATRIE"]
+                            experienceAnnees: 5
+                            bio: null
+                            tarifConsultation: 20000
+                          servicesOfferts:
+                            accepteDomicile: true
+                            accepteTeleconsultation: true
+                            accepteclinique: true
+                          statutValidation:
+                            statut: "EN_ATTENTE"
+                            dateValidation: null
+                            commentaireValidation: null
+                          activite:
+                            statutCompte: "ACTIF"
+                            dateInscription: "2024-01-10T08:15:00Z"
+                            joursDepuisInscription: 20
+                            nombreRendezVous: 0
+                            nombreConsultations: 0
+                      pagination:
+                        currentPage: 1
+                        totalPages: 5
+                        totalCount: 87
+                        limit: 20
+                        hasNextPage: true
+                        hasPrevPage: false
+                        itemsOnPage: 20
+                      statistiques:
+                        total: 87
+                        enAttente: 12
+                        valides: 72
+                        rejetes: 3
+                      filtres:
+                        statutValidation: null
+                        specialite: null
+                        statut: null
+                        search: null
+                      actions:
+                        validateEndpoint: "PUT /v1/admin/doctors/{id}/validate"
+                        profileEndpoint: "GET /v1/admin/doctors/{id}/profile"
+                        documentsEndpoint: "GET /v1/admin/doctors/{id}/documents"
+                      adminInfo:
+                        consultePar: "Admin Pierre"
+                        consulteA: "2024-01-15T14:30:00Z"
+                        ip: "192.168.1.100"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+                avec_filtres:
+                  summary: Liste filtrée (médecins validés en cardiologie)
+                  value:
+                    success: true
+                    message: "Liste des médecins récupérée avec succès"
+                    data:
+                      medecins: 
+                        - id: "uuid-medecin-456"
+                          userId: "uuid-user-789"
+                          informationsPersonnelles:
+                            nom: "Diabaté"
+                            prenom: "Dr Fatou"
+                            email: "dr.fatou@example.com"
+                            telephone: "0107080910"
+                          informationsProfessionnelles:
+                            numeroOrdre: "CI123456"
+                            specialites: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+                            experienceAnnees: 8
+                            bio: "Cardiologue expérimenté..."
+                            tarifConsultation: 25000
+                          servicesOfferts:
+                            accepteDomicile: false
+                            accepteTeleconsultation: true
+                            accepteclinique: true
+                          statutValidation:
+                            statut: "VALIDE"
+                            dateValidation: "2024-01-16T09:15:00Z"
+                            commentaireValidation: "Dossier complet et conforme"
+                          activite:
+                            statutCompte: "ACTIF"
+                            dateInscription: "2024-01-15T10:30:00Z"
+                            joursDepuisInscription: 15
+                            nombreRendezVous: 23
+                            nombreConsultations: 18
+                      pagination:
+                        currentPage: 1
+                        totalPages: 1
+                        totalCount: 3
+                        limit: 20
+                        hasNextPage: false
+                        hasPrevPage: false
+                        itemsOnPage: 3
+                      statistiques:
+                        total: 87
+                        enAttente: 12
+                        valides: 72
+                        rejetes: 3
+                      filtres:
+                        statutValidation: "VALIDE"
+                        specialite: "CARDIOLOGIE"
+                        statut: "ACTIF"
+                        search: null
+                      actions:
+                        validateEndpoint: "PUT /v1/admin/doctors/{id}/validate"
+                        profileEndpoint: "GET /v1/admin/doctors/{id}/profile"
+                        documentsEndpoint: "GET /v1/admin/doctors/{id}/documents"
+                      adminInfo:
+                        consultePar: "Admin Pierre"
+                        consulteA: "2024-01-15T14:30:00Z"
+                        ip: "192.168.1.100"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          description: Non authentifié
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "UNAUTHORIZED"
+                  message:
+                    type: string
+                    example: "Token d'authentification requis"
+
+        '403':
+          description: Accès refusé (rôle insuffisant)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "FORBIDDEN"
+                  message:
+                    type: string
+                    example: "Accès réservé aux administrateurs"
+
+        '400':
+          description: Paramètres invalides
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "VALIDATION_ERROR"
+                  message:
+                    type: string
+                    example: "Paramètres de requête invalides"
+                  details:
+                    type: object
+                    example:
+                      statutValidation: "Doit être EN_ATTENTE, VALIDE ou REJETE"
+                      limit: "Doit être entre 1 et 100"
+
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "INTERNAL_ERROR"
+                  message:
+                    type: string
+                    example: "Erreur interne lors de la récupération de la liste des médecins"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

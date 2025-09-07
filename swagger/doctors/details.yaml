@@ -321,13 +321,53 @@ components:
           type: object
           properties:
             photoProfile:
-              type: string
+              type: object
               nullable: true
-              example: "/uploads/profiles/medecin123.jpg"
+              properties:
+                fileId:
+                  type: string
+                  example: "medecin_photo_123456789"
+                nom_fichier:
+                  type: string
+                  example: "photo-profil-5-1704461422123-profile.jpg"
+                taille:
+                  type: integer
+                  example: 524288
+                mime_type:
+                  type: string
+                  example: "image/jpeg"
+                upload_date:
+                  type: string
+                  format: date-time
+                  example: "2024-01-15T14:30:22.123Z"
+                url:
+                  type: string
+                  example: "http://localhost:3000/files/uploads/photos/profil/photo-profil-5-1704461422123-profile.jpg"
+                  description: "URL publique pour accéder à la photo de profil"
             photoCabinet:
-              type: string
+              type: object
               nullable: true
-              example: "/uploads/cabinets/cabinet123.jpg"
+              properties:
+                fileId:
+                  type: string
+                  example: "cabinet_photo_123456789"
+                nom_fichier:
+                  type: string
+                  example: "photo-cabinet-5-1704461422123-cabinet.jpg"
+                taille:
+                  type: integer
+                  example: 724288
+                mime_type:
+                  type: string
+                  example: "image/jpeg"
+                upload_date:
+                  type: string
+                  format: date-time
+                  example: "2024-01-15T14:30:22.123Z"
+                url:
+                  type: string
+                  example: "http://localhost:3000/files/uploads/photos/cabinet/photo-cabinet-5-1704461422123-cabinet.jpg"
+                  description: "URL publique pour accéder à la photo du cabinet"
             videoPresentation:
               type: string
               nullable: true

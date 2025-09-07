@@ -1,0 +1,722 @@
+openapi: 3.0.0
+info:
+  title: Admin Doctors Documents Management API
+  description: Gestion complète des documents médicaux avec libellés personnalisés par les administrateurs
+  version: 1.0.0
+
+paths:
+  /v1/admin/doctors/{medecinId}/documents:
+    put:
+      tags:
+        - Administration
+      summary: Gérer les documents d'un médecin avec libellés personnalisés
+      description: |
+        API unifiée pour la gestion complète des documents médicaux avec libellés personnalisés.
+        
+        **🗂️ Actions disponibles :**
+        - ➕ **ADD** : Ajouter un nouveau document avec libellé personnalisé
+        - ✏️ **UPDATE** : Modifier libellé, description ou remplacer le fichier
+        - 🗑️ **DELETE** : Supprimer document et fichier physique
+        - 📋 **LIST** : Lister tous les documents du médecin
+        
+        **📁 Types de documents :**
+        - **DIPLOME** : Diplômes universitaires, certificats d'études
+        - **CERTIFICATION** : Certificats d'inscription à l'ordre, formations continues
+        - **AUTRE** : Tout autre document médical pertinent
+        
+        **🏷️ Libellés personnalisés :**
+        - Libellé obligatoire pour chaque document
+        - Description optionnelle pour plus de détails
+        - Traçabilité complète (qui, quand, depuis quelle IP)
+        
+        **🛡️ Sécurité et stockage :**
+        - **Formats acceptés** : PDF, JPG, PNG uniquement
+        - **Taille maximale** : 10MB par fichier
+        - **Stockage** : Local sécurisé ou service externe (selon config)
+        - **Accès** : Authentifié et tracé pour audit
+        
+        **📊 Workflow typique :**
+        1. **ADD** : Admin upload document avec libellé descriptif
+        2. **LIST** : Visualisation de tous les documents du médecin
+        3. **UPDATE** : Modification libellé ou remplacement fichier si nécessaire
+        4. **DELETE** : Suppression si document incorrect ou obsolète
+        
+        **⚠️ Contraintes importantes :**
+        - Seuls les médecins EN_ATTENTE peuvent recevoir de nouveaux documents
+        - Suppression physique automatique du fichier lors de DELETE
+        - Tous les champs libelle/description sont modifiables
+        - Changement de type possible (DIPLOME → CERTIFICATION, etc.)
+        
+        **User Stories :** Admin-US6, US7 (Gestion documents médicaux)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: medecinId
+          in: path
+          description: ID unique du médecin concerné
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+      requestBody:
+        required: true
+        description: |
+          **Structure variable selon l'action** :
+          
+          - **ADD** : `action` + `libelle` + `type` + `document` (fichier) + `description` (optionnel)
+          - **UPDATE** : `action` + `documentId` + champs à modifier + `document` (optionnel si remplacement)
+          - **DELETE** : `action` + `documentId`
+          - **LIST** : `action` uniquement
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [ADD, UPDATE, DELETE, LIST]
+                  description: |
+                    Action à effectuer sur les documents
+                    
+                    **Actions :**
+                    - **ADD** : Ajouter un nouveau document
+                    - **UPDATE** : Modifier un document existant
+                    - **DELETE** : Supprimer un document
+                    - **LIST** : Lister tous les documents
+                  example: "ADD"
+                
+                documentId:
+                  type: string
+                  description: |
+                    ID du document à modifier ou supprimer
+                    
+                    **Requis pour :** UPDATE, DELETE
+                    **Format :** ID du fichier retourné lors de l'upload
+                  example: "a1b2c3d4e5f67890abcdef1234567890"
+                
+                libelle:
+                  type: string
+                  minLength: 3
+                  maxLength: 200
+                  description: |
+                    Libellé descriptif personnalisé du document
+                    
+                    **Requis pour :** ADD
+                    **Optionnel pour :** UPDATE (si modification souhaitée)
+                    **Exemples :**
+                    - "Diplôme de Docteur en Médecine - Université d'Abidjan"
+                    - "Certificat d'inscription à l'Ordre des Médecins 2023"
+                    - "Formation continue en Cardiologie interventionnelle"
+                  example: "Diplôme de Docteur en Médecine - Université d'Abidjan"
+                
+                type:
+                  type: string
+                  enum: [DIPLOME, CERTIFICATION, AUTRE]
+                  description: |
+                    Type de document médical
+                    
+                    **Requis pour :** ADD
+                    **Optionnel pour :** UPDATE (si changement de type)
+                    
+                    **Types :**
+                    - **DIPLOME** : Diplômes universitaires, certificats d'études
+                    - **CERTIFICATION** : Ordre des médecins, formations continues
+                    - **AUTRE** : Autres documents médicaux pertinents
+                  example: "DIPLOME"
+                
+                description:
+                  type: string
+                  maxLength: 500
+                  description: |
+                    Description détaillée optionnelle
+                    
+                    **Usage :** Informations complémentaires sur le document
+                    **Exemple :** Date d'obtention, institution, spécifications
+                  example: "Diplôme obtenu en juin 2020 avec mention Très Bien. Spécialisation en médecine interne."
+                
+                document:
+                  type: string
+                  format: binary
+                  description: |
+                    Fichier document à uploader
+                    
+                    **Requis pour :** ADD
+                    **Optionnel pour :** UPDATE (si remplacement du fichier)
+                    
+                    **Contraintes :**
+                    - **Formats acceptés :** PDF, JPG, PNG uniquement
+                    - **Taille maximale :** 10MB
+                    - **Recommandation :** PDF pour documents officiels
+            
+            examples:
+              ajouter_diplome:
+                summary: Ajouter un diplôme de médecine
+                value:
+                  action: "ADD"
+                  libelle: "Diplôme de Docteur en Médecine - Université d'Abidjan"
+                  type: "DIPLOME"
+                  description: "Diplôme obtenu en juin 2020 avec mention Très Bien"
+                  document: "[FICHIER_PDF]"
+              
+              ajouter_certification:
+                summary: Ajouter une certification professionnelle
+                value:
+                  action: "ADD"
+                  libelle: "Certificat d'inscription à l'Ordre des Médecins 2024"
+                  type: "CERTIFICATION"
+                  description: "Certificat valide jusqu'en décembre 2024"
+                  document: "[FICHIER_PDF]"
+              
+              modifier_libelle:
+                summary: Modifier le libellé d'un document existant
+                value:
+                  action: "UPDATE"
+                  documentId: "a1b2c3d4e5f67890abcdef1234567890"
+                  libelle: "Diplôme de Docteur en Médecine - Université Félix Houphouët-Boigny"
+                  description: "Mise à jour du nom officiel de l'université"
+              
+              remplacer_fichier:
+                summary: Remplacer un fichier document
+                value:
+                  action: "UPDATE"
+                  documentId: "a1b2c3d4e5f67890abcdef1234567890"
+                  document: "[NOUVEAU_FICHIER_PDF]"
+              
+              supprimer_document:
+                summary: Supprimer un document
+                value:
+                  action: "DELETE"
+                  documentId: "a1b2c3d4e5f67890abcdef1234567890"
+              
+              lister_documents:
+                summary: Lister tous les documents
+                value:
+                  action: "LIST"
+
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [LIST]
+                  description: Action LIST peut être envoyée en JSON simple
+            examples:
+              lister_documents_json:
+                summary: Lister documents (format JSON)
+                value:
+                  action: "LIST"
+
+      responses:
+        '200':
+          description: Action sur les documents effectuée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    oneOf:
+                      # Response pour LIST
+                      - properties:
+                          medecin:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              nom:
+                                type: string
+                              prenom:
+                                type: string
+                          documents:
+                            type: object
+                            properties:
+                              diplomes:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/DocumentInfo'
+                              certifications:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/DocumentInfo'
+                          statistiques:
+                            type: object
+                            properties:
+                              totalDiplomes:
+                                type: integer
+                              totalCertifications:
+                                type: integer
+                              total:
+                                type: integer
+                      
+                      # Response pour ADD/UPDATE
+                      - properties:
+                          document:
+                            $ref: '#/components/schemas/DocumentInfo'
+                          medecin:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              nom:
+                                type: string
+                              prenom:
+                                type: string
+                          upload:
+                            type: object
+                            properties:
+                              uploadedBy:
+                                type: string
+                              uploadedAt:
+                                type: string
+                                format: date-time
+                              storageMode:
+                                type: string
+                                enum: [local, external]
+                      
+                      # Response pour DELETE
+                      - properties:
+                          deletedDocument:
+                            type: object
+                            properties:
+                              documentId:
+                                type: string
+                              libelle:
+                                type: string
+                              type:
+                                type: string
+                              filename:
+                                type: string
+                          deleteInfo:
+                            type: object
+                            properties:
+                              deletedBy:
+                                type: string
+                              deletedAt:
+                                type: string
+                                format: date-time
+                              physicalFileDeleted:
+                                type: boolean
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                liste_documents:
+                  summary: Liste complète des documents d'un médecin
+                  value:
+                    success: true
+                    message: "Documents récupérés avec succès"
+                    data:
+                      medecin:
+                        id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        nom: "Diabaté"
+                        prenom: "Dr Fatou"
+                      documents:
+                        diplomes:
+                          - documentId: "abc123def456ghi789"
+                            libelle: "Diplôme de Docteur en Médecine - Université d'Abidjan"
+                            type: "DIPLOME"
+                            description: "Diplôme obtenu en juin 2020 avec mention Très Bien"
+                            filename: "abc123def456ghi789.pdf"
+                            size: 2048576
+                            mimeType: "application/pdf"
+                            uploadDate: "2024-01-10T09:15:30.123Z"
+                            uploadedByAdminName: "Admin Marie Kouassi"
+                          - documentId: "def456ghi789jkl012"
+                            libelle: "Diplôme de Spécialisation en Cardiologie"
+                            type: "DIPLOME"
+                            description: "Spécialisation obtenue à Paris en 2022"
+                            filename: "def456ghi789jkl012.pdf"
+                            size: 1536000
+                            mimeType: "application/pdf"
+                            uploadDate: "2024-01-10T10:30:45.456Z"
+                            uploadedByAdminName: "Admin Marie Kouassi"
+                        certifications:
+                          - documentId: "ghi789jkl012mno345"
+                            libelle: "Certificat d'inscription à l'Ordre des Médecins 2024"
+                            type: "CERTIFICATION"
+                            description: "Certificat valide jusqu'en décembre 2024"
+                            filename: "ghi789jkl012mno345.pdf"
+                            size: 512000
+                            mimeType: "application/pdf"
+                            uploadDate: "2024-01-11T14:20:15.789Z"
+                            uploadedByAdminName: "Admin Jean Kouakou"
+                      statistiques:
+                        totalDiplomes: 2
+                        totalCertifications: 1
+                        total: 3
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                document_ajoute:
+                  summary: Document ajouté avec succès
+                  value:
+                    success: true
+                    message: "Document ajouté avec succès"
+                    data:
+                      document:
+                        documentId: "new123doc456file789"
+                        libelle: "Formation Continue en Échographie Cardiaque"
+                        type: "CERTIFICATION"
+                        description: "Formation validée par la Société de Cardiologie"
+                        filename: "new123doc456file789.pdf"
+                        size: 1024000
+                        mimeType: "application/pdf"
+                      medecin:
+                        id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        nom: "Diabaté"
+                        prenom: "Dr Fatou"
+                      upload:
+                        uploadedBy: "Admin Marie Kouassi"
+                        uploadedAt: "2024-01-15T14:30:22.123Z"
+                        storageMode: "local"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                document_mis_a_jour:
+                  summary: Document mis à jour avec succès
+                  value:
+                    success: true
+                    message: "Document mis à jour avec succès"
+                    data:
+                      document:
+                        documentId: "abc123def456ghi789"
+                        libelle: "Diplôme de Docteur en Médecine - Université Félix Houphouët-Boigny"
+                        type: "DIPLOME"
+                        description: "Mise à jour du nom officiel de l'université"
+                        filename: "abc123def456ghi789.pdf"
+                        size: 2048576
+                        mimeType: "application/pdf"
+                        fileChanged: false
+                      updateInfo:
+                        updatedBy: "Admin Marie Kouassi"
+                        updatedAt: "2024-01-15T14:30:22.123Z"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                document_supprime:
+                  summary: Document supprimé avec succès
+                  value:
+                    success: true
+                    message: "Document supprimé avec succès"
+                    data:
+                      deletedDocument:
+                        documentId: "old123doc456todel"
+                        libelle: "Ancien certificat obsolète"
+                        type: "CERTIFICATION"
+                        filename: "old123doc456todel.pdf"
+                      deleteInfo:
+                        deletedBy: "Admin Marie Kouassi"
+                        deletedAt: "2024-01-15T14:30:22.123Z"
+                        physicalFileDeleted: true
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '201':
+          description: Document créé avec succès (action ADD)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Document ajouté avec succès"
+                  data:
+                    type: object
+                    properties:
+                      document:
+                        $ref: '#/components/schemas/DocumentInfo'
+                      medecin:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          nom:
+                            type: string
+                          prenom:
+                            type: string
+                      upload:
+                        type: object
+                        properties:
+                          uploadedBy:
+                            type: string
+                          uploadedAt:
+                            type: string
+                            format: date-time
+                          storageMode:
+                            type: string
+                            enum: [local, external]
+
+        '400':
+          description: Requête invalide - Paramètres manquants ou incorrects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                action_manquante:
+                  summary: Action non spécifiée
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "Paramètres de requête invalides"
+                    details:
+                      action: "Ce champ est obligatoire"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                action_invalide:
+                  summary: Action non reconnue
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Action non reconnue"
+                    details:
+                      code: "INVALID_ACTION"
+                      allowedActions: ["ADD", "UPDATE", "DELETE", "LIST"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                fichier_requis_add:
+                  summary: Fichier requis pour ADD
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Fichier requis pour ajouter un document"
+                    details:
+                      code: "FILE_REQUIRED"
+                      action: "ADD"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                libelle_requis_add:
+                  summary: Libellé requis pour ADD
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Libellé requis pour ajouter un document"
+                    details:
+                      code: "LIBELLE_REQUIRED"
+                      field: "libelle"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                document_id_requis:
+                  summary: Document ID requis pour UPDATE/DELETE
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "ID du document requis pour la mise à jour"
+                    details:
+                      code: "DOCUMENT_ID_REQUIRED"
+                      action: "UPDATE"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                fichier_trop_volumineux:
+                  summary: Fichier trop volumineux
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Fichier trop volumineux. Maximum: 10MB"
+                    details:
+                      code: "FILE_TOO_LARGE"
+                      maxSize: "10MB"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                format_fichier_invalide:
+                  summary: Format de fichier non autorisé
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Format de fichier non autorisé. Formats acceptés: PDF, JPG, PNG"
+                    details:
+                      code: "INVALID_FILE_FORMAT"
+                      allowedFormats: ["PDF", "JPG", "PNG"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '403':
+          description: Accès refusé - Réservé aux administrateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "FORBIDDEN"
+                message: "Accès réservé aux administrateurs"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '404':
+          description: Ressource non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                medecin_non_trouve:
+                  summary: Médecin non trouvé
+                  value:
+                    success: false
+                    error: "NOT_FOUND"
+                    message: "Médecin non trouvé"
+                    details:
+                      code: "MEDECIN_NOT_FOUND"
+                      medecinId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                document_non_trouve:
+                  summary: Document non trouvé
+                  value:
+                    success: false
+                    error: "NOT_FOUND"
+                    message: "Document non trouvé"
+                    details:
+                      code: "DOCUMENT_NOT_FOUND"
+                      documentId: "abc123def456ghi789"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          description: Erreur serveur - Problème de stockage ou traitement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                erreur_service_fichiers:
+                  summary: Erreur du service de fichiers
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur lors de la gestion du fichier"
+                    details:
+                      code: "FILE_SERVICE_ERROR"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                erreur_generale:
+                  summary: Erreur interne générale
+                  value:
+                    success: false
+                    error: "INTERNAL_SERVER_ERROR"
+                    message: "Erreur interne lors de la gestion des documents"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+components:
+  schemas:
+    DocumentInfo:
+      type: object
+      description: Informations complètes sur un document médical
+      properties:
+        documentId:
+          type: string
+          description: ID unique du document pour les opérations
+          example: "abc123def456ghi789"
+        libelle:
+          type: string
+          description: Libellé descriptif personnalisé
+          example: "Diplôme de Docteur en Médecine - Université d'Abidjan"
+        type:
+          type: string
+          enum: [DIPLOME, CERTIFICATION, AUTRE]
+          description: Type de document médical
+          example: "DIPLOME"
+        description:
+          type: string
+          nullable: true
+          description: Description détaillée optionnelle
+          example: "Diplôme obtenu en juin 2020 avec mention Très Bien"
+        filename:
+          type: string
+          description: Nom du fichier physique
+          example: "abc123def456ghi789.pdf"
+        size:
+          type: integer
+          description: Taille du fichier en bytes
+          example: 2048576
+        mimeType:
+          type: string
+          description: Type MIME du fichier
+          example: "application/pdf"
+        uploadDate:
+          type: string
+          format: date-time
+          description: Date d'upload du document
+          example: "2024-01-10T09:15:30.123Z"
+        uploadedByAdminId:
+          type: string
+          format: uuid
+          description: ID de l'admin qui a uploadé
+          example: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+        uploadedByAdminName:
+          type: string
+          description: Nom complet de l'admin qui a uploadé
+          example: "Admin Marie Kouassi"
+        lastUpdatedBy:
+          type: string
+          nullable: true
+          description: Dernière modification par (si applicable)
+          example: "Admin Jean Kouakou"
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Date dernière modification (si applicable)
+          example: "2024-01-12T16:45:20.456Z"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ERROR_CODE"
+        message:
+          type: string
+          example: "Description de l'erreur"
+        details:
+          type: object
+          additionalProperties: true
+          description: Détails spécifiques à l'erreur
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+
+  responses:
+    Unauthorized:
+      description: Non authentifié - Token manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "Token d'authentification requis"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT d'administrateur obtenu lors de la connexion.
+        Format: `Authorization: Bearer <admin_token>`

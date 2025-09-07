@@ -1,0 +1,850 @@
+openapi: 3.0.0
+info:
+  title: Admin Clinic Details API
+  description: Consultation détaillée des cliniques et de leurs médecins par les administrateurs
+  version: 1.0.0
+
+paths:
+  /v1/admin/cliniques/{cliniqueId}:
+    get:
+      tags:
+        - Administration
+      summary: Consulter les détails complets d'une clinique
+      description: |
+        Permet aux administrateurs de consulter toutes les informations détaillées d'une clinique spécifique.
+        
+        **🏥 Fonctionnalités :**
+        - 📋 **Vue complète** : Toutes les informations de la clinique
+        - 👨‍⚕️ **Médecins affiliés** : Liste complète avec profils et statistiques
+        - 📅 **Disponibilités** : Créneaux par jour et par médecin
+        - 📝 **Rendez-vous futurs** : 10 prochains RDV programmés
+        - 📊 **Statistiques complètes** : Métriques et analyses détaillées
+        
+        **📋 Données détaillées :**
+        
+        **Informations clinique** :
+        - Toutes les données de base (nom, adresse, contact)
+        - Coordonnées GPS si disponibles
+        - Horaires d'ouverture détaillés
+        - Services médicaux proposés
+        - Statut (actif/inactif) et dates
+        
+        **Médecins affiliés** :
+        - Profils complets avec spécialités et expérience
+        - Statut de validation et types de consultation
+        - Notes et évaluations patients
+        - Statistiques personnelles (RDV, disponibilités)
+        
+        **Disponibilités et planning** :
+        - Créneaux par jour de semaine
+        - Types de consultation par créneau
+        - Association médecin-disponibilité
+        
+        **Rendez-vous à venir** :
+        - 10 prochains rendez-vous programmés
+        - Informations médecin-patient (anonymisées)
+        - Statuts et types de consultation
+        
+        **🔄 Workflow :**
+        1. Admin sélectionne une clinique par ID
+        2. Système récupère toutes les données associées
+        3. Calcul des statistiques et métriques
+        4. Formatage des disponibilités par jour
+        5. Réponse complète avec actions possibles
+        
+        **📊 Statistiques incluses :**
+        - Nombre total de médecins et répartition par statut
+        - Spécialités disponibles dans la clinique
+        - Types de consultation supportés
+        - Prochains rendez-vous programmés
+        
+        **User Stories :** Admin-US8 (Détails cliniques et médecins)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: cliniqueId
+          in: path
+          description: ID unique de la clinique à consulter
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+
+      responses:
+        '200':
+          description: Détails de la clinique récupérés avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Détails de la clinique récupérés avec succès"
+                  data:
+                    type: object
+                    properties:
+                      clinique:
+                        type: object
+                        description: "Informations complètes de la clinique"
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                            example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom:
+                            type: string
+                            example: "Clinique Internationale d'Abidjan"
+                          adresse:
+                            type: string
+                            example: "Boulevard de la République, Plateau, en face de la cathédrale Saint-Paul"
+                          ville:
+                            type: string
+                            example: "Abidjan"
+                          telephone:
+                            type: string
+                            nullable: true
+                            example: "+22521234567"
+                          email:
+                            type: string
+                            nullable: true
+                            example: "contact@clinique-abidjan.ci"
+                          latitude:
+                            type: number
+                            nullable: true
+                            example: 5.3157
+                          longitude:
+                            type: number
+                            nullable: true
+                            example: -4.0217
+                          horaires:
+                            type: object
+                            nullable: true
+                            example:
+                              LUNDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                              MARDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                              MERCREDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                          services:
+                            type: array
+                            nullable: true
+                            items:
+                              type: string
+                            example: ["CONSULTATION_GENERALE", "URGENCES", "RADIOLOGIE", "LABORATOIRE"]
+                          active:
+                            type: boolean
+                            example: true
+                          createdAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-10T10:30:22.123Z"
+                      medecinsAffilies:
+                        type: array
+                        description: "Liste complète des médecins affiliés avec détails"
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                            user:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                  example: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+                                nom:
+                                  type: string
+                                  example: "Diabaté"
+                                prenom:
+                                  type: string
+                                  example: "Dr Fatou"
+                                email:
+                                  type: string
+                                  example: "dr.fatou.diabate@clinique-abidjan.ci"
+                                telephone:
+                                  type: string
+                                  example: "+22507080910"
+                                statut:
+                                  type: string
+                                  enum: [ACTIF, SUSPENDU, DESACTIVE]
+                                  example: "ACTIF"
+                            numeroOrdre:
+                              type: string
+                              example: "CI123456789"
+                            specialites:
+                              type: array
+                              items:
+                                type: string
+                              example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+                            statutValidation:
+                              type: string
+                              enum: [EN_ATTENTE, VALIDE, REJETE]
+                              example: "VALIDE"
+                            experienceAnnees:
+                              type: integer
+                              nullable: true
+                              example: 15
+                            accepteDomicile:
+                              type: boolean
+                              example: true
+                            accepteTeleconsultation:
+                              type: boolean
+                              example: true
+                            accepteclinique:
+                              type: boolean
+                              example: true
+                            tarifConsultationBase:
+                              type: number
+                              nullable: true
+                              example: 25000.00
+                            noteMoyenne:
+                              type: number
+                              example: 4.7
+                            nombreEvaluations:
+                              type: integer
+                              example: 127
+                            dateAssociation:
+                              type: string
+                              format: date-time
+                              example: "2024-01-08T09:15:33.789Z"
+                            statistiques:
+                              type: object
+                              description: "Statistiques du médecin dans cette clinique"
+                              properties:
+                                prochainRendezVous:
+                                  type: integer
+                                  description: "Nombre de RDV futurs"
+                                  example: 8
+                                disponibilitesClinique:
+                                  type: integer
+                                  description: "Créneaux de disponibilité dans cette clinique"
+                                  example: 12
+                      disponibilites:
+                        type: object
+                        description: "Disponibilités organisées par jour"
+                        properties:
+                          parJour:
+                            type: object
+                            description: "Créneaux par jour de semaine"
+                            properties:
+                              LUNDI:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    heureDebut:
+                                      type: string
+                                      example: "08:00"
+                                    heureFin:
+                                      type: string
+                                      example: "12:00"
+                                    typeConsultation:
+                                      type: string
+                                      enum: [DOMICILE, CLINIQUE, TELECONSULTATION]
+                                      example: "CLINIQUE"
+                                    medecin:
+                                      type: string
+                                      example: "Dr Fatou Diabaté"
+                              MARDI:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    heureDebut:
+                                      type: string
+                                    heureFin:
+                                      type: string
+                                    typeConsultation:
+                                      type: string
+                                    medecin:
+                                      type: string
+                              MERCREDI:
+                                type: array
+                                items:
+                                  type: object
+                              JEUDI:
+                                type: array
+                                items:
+                                  type: object
+                              VENDREDI:
+                                type: array
+                                items:
+                                  type: object
+                              SAMEDI:
+                                type: array
+                                items:
+                                  type: object
+                              DIMANCHE:
+                                type: array
+                                items:
+                                  type: object
+                          total:
+                            type: integer
+                            description: "Nombre total de créneaux de disponibilité"
+                            example: 24
+                      prochainsRendezVous:
+                        type: array
+                        description: "Liste des 10 prochains rendez-vous programmés"
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              example: "e5f6g7h8-i9j0-1234-efgh-345678901234"
+                            date:
+                              type: string
+                              format: date-time
+                              example: "2024-01-20T14:30:00.000Z"
+                            statut:
+                              type: string
+                              enum: [DEMANDE, CONFIRME, ANNULE, TERMINE]
+                              example: "CONFIRME"
+                            type:
+                              type: string
+                              enum: [DOMICILE, CLINIQUE, TELECONSULTATION]
+                              example: "CLINIQUE"
+                            medecin:
+                              type: string
+                              description: "Nom du médecin ou 'Non assigné'"
+                              example: "Dr Fatou Diabaté"
+                            patient:
+                              type: string
+                              description: "Nom du patient ou 'Anonyme'"
+                              example: "Jean Kouakou"
+                      statistiques:
+                        type: object
+                        description: "Statistiques complètes de la clinique"
+                        properties:
+                          totalMedecins:
+                            type: integer
+                            example: 15
+                          medecinsValides:
+                            type: integer
+                            example: 12
+                          medecinsEnAttente:
+                            type: integer
+                            example: 3
+                          totalDisponibilites:
+                            type: integer
+                            example: 24
+                          prochainsRendezVous:
+                            type: integer
+                            example: 10
+                          specialitesDisponibles:
+                            type: array
+                            items:
+                              type: string
+                            description: "Spécialités des médecins validés"
+                            example: ["CARDIOLOGIE", "MEDECINE_INTERNE", "PEDIATRIE", "GYNECOLOGIE"]
+                          typesConsultation:
+                            type: object
+                            description: "Nombre de médecins par type de consultation"
+                            properties:
+                              domicile:
+                                type: integer
+                                example: 8
+                              teleconsultation:
+                                type: integer
+                                example: 10
+                              clinique:
+                                type: integer
+                                example: 15
+                      consultationInfo:
+                        type: object
+                        description: "Informations sur la consultation des détails"
+                        properties:
+                          consultedBy:
+                            type: string
+                            example: "Admin Marie Kouassi"
+                          consultedAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                      actions:
+                        type: object
+                        description: "Actions disponibles"
+                        properties:
+                          modifierClinique:
+                            type: string
+                            example: "PUT /v1/admin/cliniques/c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          associerMedecin:
+                            type: string
+                            example: "PUT /v1/admin/doctors/:medecinId/profile (cliniqueId)"
+                          gererDisponibilites:
+                            type: string
+                            example: "Voir routes médecins individuelles"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                clinique_complete:
+                  summary: Clinique avec médecins et activité
+                  description: Exemple d'une clinique active avec plusieurs médecins
+                  value:
+                    success: true
+                    message: "Détails de la clinique récupérés avec succès"
+                    data:
+                      clinique:
+                        id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                        nom: "Clinique Internationale d'Abidjan"
+                        adresse: "Boulevard de la République, Plateau, en face de la cathédrale Saint-Paul"
+                        ville: "Abidjan"
+                        telephone: "+22521234567"
+                        email: "contact@clinique-abidjan.ci"
+                        latitude: 5.3157
+                        longitude: -4.0217
+                        horaires:
+                          LUNDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                          MARDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                          MERCREDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                          JEUDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                          VENDREDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                          SAMEDI: { "ouverture": "09:00", "fermeture": "13:00" }
+                        services: ["CONSULTATION_GENERALE", "URGENCES", "CARDIOLOGIE", "RADIOLOGIE", "LABORATOIRE"]
+                        active: true
+                        createdAt: "2024-01-10T10:30:22.123Z"
+                      medecinsAffilies:
+                        - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                          user:
+                            id: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+                            nom: "Diabaté"
+                            prenom: "Dr Fatou"
+                            email: "dr.fatou.diabate@clinique-abidjan.ci"
+                            telephone: "+22507080910"
+                            statut: "ACTIF"
+                          numeroOrdre: "CI123456789"
+                          specialites: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+                          statutValidation: "VALIDE"
+                          experienceAnnees: 15
+                          accepteDomicile: true
+                          accepteTeleconsultation: true
+                          accepteclinique: true
+                          tarifConsultationBase: 25000.00
+                          noteMoyenne: 4.7
+                          nombreEvaluations: 127
+                          dateAssociation: "2024-01-08T09:15:33.789Z"
+                          statistiques:
+                            prochainRendezVous: 8
+                            disponibilitesClinique: 12
+                        - id: "f1g2h3i4-j5k6-7890-fghi-ef1234567890"
+                          user:
+                            id: "g2h3i4j5-k6l7-8901-ghij-f12345678901"
+                            nom: "Kone"
+                            prenom: "Dr Ahmed"
+                            email: "dr.ahmed.kone@clinique-abidjan.ci"
+                            telephone: "+22508070605"
+                            statut: "ACTIF"
+                          numeroOrdre: "CI987654321"
+                          specialites: ["PEDIATRIE"]
+                          statutValidation: "VALIDE"
+                          experienceAnnees: 8
+                          accepteDomicile: false
+                          accepteTeleconsultation: true
+                          accepteclinique: true
+                          tarifConsultationBase: 20000.00
+                          noteMoyenne: 4.5
+                          nombreEvaluations: 89
+                          dateAssociation: "2024-01-12T14:22:44.567Z"
+                          statistiques:
+                            prochainRendezVous: 5
+                            disponibilitesClinique: 8
+                      disponibilites:
+                        parJour:
+                          LUNDI:
+                            - heureDebut: "08:00"
+                              heureFin: "12:00"
+                              typeConsultation: "CLINIQUE"
+                              medecin: "Dr Fatou Diabaté"
+                            - heureDebut: "14:00"
+                              heureFin: "17:00"
+                              typeConsultation: "CLINIQUE"
+                              medecin: "Dr Ahmed Kone"
+                          MARDI:
+                            - heureDebut: "09:00"
+                              heureFin: "13:00"
+                              typeConsultation: "CLINIQUE"
+                              medecin: "Dr Fatou Diabaté"
+                          MERCREDI:
+                            - heureDebut: "08:00"
+                              heureFin: "12:00"
+                              typeConsultation: "TELECONSULTATION"
+                              medecin: "Dr Ahmed Kone"
+                        total: 24
+                      prochainsRendezVous:
+                        - id: "e5f6g7h8-i9j0-1234-efgh-345678901234"
+                          date: "2024-01-20T14:30:00.000Z"
+                          statut: "CONFIRME"
+                          type: "CLINIQUE"
+                          medecin: "Dr Fatou Diabaté"
+                          patient: "Jean Kouakou"
+                        - id: "f6g7h8i9-j0k1-2345-fghi-456789012345"
+                          date: "2024-01-20T15:00:00.000Z"
+                          statut: "CONFIRME"
+                          type: "CLINIQUE"
+                          medecin: "Dr Ahmed Kone"
+                          patient: "Marie Ouattara"
+                      statistiques:
+                        totalMedecins: 15
+                        medecinsValides: 12
+                        medecinsEnAttente: 3
+                        totalDisponibilites: 24
+                        prochainsRendezVous: 10
+                        specialitesDisponibles: ["CARDIOLOGIE", "MEDECINE_INTERNE", "PEDIATRIE", "GYNECOLOGIE"]
+                        typesConsultation:
+                          domicile: 8
+                          teleconsultation: 10
+                          clinique: 15
+                      consultationInfo:
+                        consultedBy: "Admin Marie Kouassi"
+                        consultedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                      actions:
+                        modifierClinique: "PUT /v1/admin/cliniques/c3d4e5f6-g7h8-9012-cdef-123456789012"
+                        associerMedecin: "PUT /v1/admin/doctors/:medecinId/profile (cliniqueId)"
+                        gererDisponibilites: "Voir routes médecins individuelles"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                clinique_sans_medecins:
+                  summary: Clinique nouvellement créée sans médecins
+                  description: Exemple d'une clinique sans médecins affiliés
+                  value:
+                    success: true
+                    message: "Détails de la clinique récupérés avec succès"
+                    data:
+                      clinique:
+                        id: "d4e5f6g7-h8i9-0123-defg-234567890123"
+                        nom: "Cabinet Médical de Bouaké"
+                        adresse: "Avenue de la Paix, centre-ville"
+                        ville: "Bouaké"
+                        telephone: "+22531567890"
+                        email: null
+                        latitude: null
+                        longitude: null
+                        horaires: null
+                        services: ["CONSULTATION_GENERALE"]
+                        active: true
+                        createdAt: "2024-01-14T16:45:12.345Z"
+                      medecinsAffilies: []
+                      disponibilites:
+                        parJour:
+                          LUNDI: []
+                          MARDI: []
+                          MERCREDI: []
+                          JEUDI: []
+                          VENDREDI: []
+                          SAMEDI: []
+                          DIMANCHE: []
+                        total: 0
+                      prochainsRendezVous: []
+                      statistiques:
+                        totalMedecins: 0
+                        medecinsValides: 0
+                        medecinsEnAttente: 0
+                        totalDisponibilites: 0
+                        prochainsRendezVous: 0
+                        specialitesDisponibles: []
+                        typesConsultation:
+                          domicile: 0
+                          teleconsultation: 0
+                          clinique: 0
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '403':
+          description: Accès refusé - Réservé aux administrateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "FORBIDDEN"
+                message: "Accès réservé aux administrateurs"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '404':
+          description: Clinique non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "NOT_FOUND"
+                message: "Clinique non trouvée"
+                details:
+                  code: "CLINIQUE_NOT_FOUND"
+                  cliniqueId: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /v1/admin/cliniques/{cliniqueId}/medecins:
+    get:
+      tags:
+        - Administration
+      summary: Lister uniquement les médecins d'une clinique
+      description: |
+        Permet de récupérer la liste filtrée des médecins affiliés à une clinique spécifique.
+        
+        **👨‍⚕️ Fonctionnalités :**
+        - 📋 **Liste ciblée** : Seulement les médecins de cette clinique
+        - 🔍 **Filtrage par statut** : VALIDE, EN_ATTENTE, REJETE
+        - 📄 **Pagination complète** : Gestion des grandes listes
+        - 📊 **Statistiques** : Compteurs par statut
+        
+        **User Stories :** Admin-US9 (Médecins par clinique)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: cliniqueId
+          in: path
+          description: ID unique de la clinique
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+        
+        - name: statut
+          in: query
+          description: |
+            Filtrer par statut de validation
+            
+            **Valeurs possibles :** VALIDE, EN_ATTENTE, REJETE
+            **Non spécifié :** Tous les statuts
+          schema:
+            type: string
+            enum: [VALIDE, EN_ATTENTE, REJETE]
+          example: "VALIDE"
+        
+        - name: page
+          in: query
+          description: Numéro de page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+
+      responses:
+        '200':
+          description: Médecins de la clinique récupérés avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Médecins de la clinique récupérés avec succès"
+                  data:
+                    type: object
+                    properties:
+                      clinique:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                            example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom:
+                            type: string
+                            example: "Clinique Internationale d'Abidjan"
+                          ville:
+                            type: string
+                            example: "Abidjan"
+                      medecins:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                            user:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                nom:
+                                  type: string
+                                prenom:
+                                  type: string
+                                email:
+                                  type: string
+                                telephone:
+                                  type: string
+                                statut:
+                                  type: string
+                                  enum: [ACTIF, SUSPENDU, DESACTIVE]
+                            numeroOrdre:
+                              type: string
+                            specialites:
+                              type: array
+                              items:
+                                type: string
+                            statutValidation:
+                              type: string
+                              enum: [EN_ATTENTE, VALIDE, REJETE]
+                            experienceAnnees:
+                              type: integer
+                              nullable: true
+                            noteMoyenne:
+                              type: number
+                            nombreEvaluations:
+                              type: integer
+                            typesConsultationAcceptes:
+                              type: object
+                              properties:
+                                domicile:
+                                  type: boolean
+                                teleconsultation:
+                                  type: boolean
+                                clinique:
+                                  type: boolean
+                      pagination:
+                        type: object
+                        properties:
+                          currentPage:
+                            type: integer
+                          totalPages:
+                            type: integer
+                          totalCount:
+                            type: integer
+                          limit:
+                            type: integer
+                          hasNextPage:
+                            type: boolean
+                          hasPrevPage:
+                            type: boolean
+                          itemsOnPage:
+                            type: integer
+                      filtres:
+                        type: object
+                        properties:
+                          statutFiltre:
+                            type: string
+                            example: "TOUS"
+                          filtresDisponibles:
+                            type: array
+                            items:
+                              type: string
+                            example: ["VALIDE", "EN_ATTENTE", "REJETE"]
+                      statistiques:
+                        type: object
+                        properties:
+                          totalMedecins:
+                            type: integer
+                          totalValides:
+                            type: integer
+                          totalEnAttente:
+                            type: integer
+                  timestamp:
+                    type: string
+                    format: date-time
+
+        '404':
+          description: Clinique non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '403':
+          description: Accès refusé - Réservé aux administrateurs
+
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ERROR_CODE"
+        message:
+          type: string
+          example: "Description de l'erreur"
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+
+  responses:
+    Unauthorized:
+      description: Non authentifié - Token manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "Token d'authentification requis"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    ServerError:
+      description: Erreur interne du serveur
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "INTERNAL_SERVER_ERROR"
+            message: "Erreur interne lors de la récupération des détails de la clinique"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT d'administrateur obtenu lors de la connexion.
+        Format: `Authorization: Bearer <admin_token>`

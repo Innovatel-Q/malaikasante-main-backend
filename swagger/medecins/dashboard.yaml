@@ -1,0 +1,443 @@
+openapi: 3.0.0
+paths:
+  /v1/medecins/dashboard:
+    get:
+      tags:
+        - Médecins
+      summary: Tableau de bord médecin complet
+      description: |
+        Tableau de bord centralisé pour les médecins avec :
+        - **Statistiques générales** : RDV totaux, patients, revenus
+        - **Planning immédiat** : RDV aujourd'hui, demain, semaine
+        - **Demandes en attente** : Nouvelles demandes à traiter
+        - **Performance** : Évaluations, notes moyennes, recommandations
+        - **Alertes** : Notifications importantes et recommandations d'actions
+        
+        Données temps réel mises à jour automatiquement.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tableau de bord récupéré avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Tableau de bord récupéré avec succès"
+                  data:
+                    $ref: '#/components/schemas/DashboardMedecinResponse'
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Accès refusé - Rôle médecin requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "ACCESS_DENIED"
+                message: "Accès réservé aux médecins"
+        '404':
+          description: Profil médecin non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "MEDECIN_PROFILE_NOT_FOUND"
+                message: "Profil médecin non trouvé"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    DashboardMedecinResponse:
+      type: object
+      description: Données complètes du tableau de bord médecin
+      properties:
+        medecin:
+          $ref: '#/components/schemas/MedecinDashboardInfo'
+        statistiquesGlobales:
+          $ref: '#/components/schemas/StatistiquesGlobales'
+        planning:
+          $ref: '#/components/schemas/PlanningImmediat'
+        demandes:
+          $ref: '#/components/schemas/DemandesEnAttente'
+        performance:
+          $ref: '#/components/schemas/PerformanceMedecin'
+        alertes:
+          $ref: '#/components/schemas/AlertesRecommandations'
+        metadata:
+          $ref: '#/components/schemas/MetadataDashboard'
+      required:
+        - medecin
+        - statistiquesGlobales
+        - planning
+        - demandes
+        - performance
+        - alertes
+        - metadata
+
+    MedecinDashboardInfo:
+      type: object
+      description: Informations de base du médecin pour le dashboard
+      properties:
+        nom:
+          type: string
+          example: "KOUAME"
+        prenom:
+          type: string
+          example: "Jean-Baptiste"
+        specialite:
+          type: string
+          nullable: true
+          example: "Cardiologie"
+        statutValidation:
+          $ref: '#/components/schemas/StatutValidationMedecin'
+        statut:
+          type: string
+          enum: [ACTIF, SUSPENDU, DESACTIVE]
+          example: "ACTIF"
+        accepteNouveauxPatients:
+          type: boolean
+          example: true
+      required:
+        - nom
+        - prenom
+        - statutValidation
+        - statut
+        - accepteNouveauxPatients
+
+    StatistiquesGlobales:
+      type: object
+      description: Statistiques générales d'activité
+      properties:
+        totalRendezVous:
+          type: integer
+          example: 342
+          description: "Nombre total de RDV depuis l'inscription"
+        totalPatients:
+          type: integer
+          example: 156
+          description: "Nombre de patients uniques traités"
+        rdvTerminesMoisActuel:
+          type: integer
+          example: 28
+          description: "RDV terminés ce mois-ci"
+        rdvEnAttente:
+          type: integer
+          example: 5
+          description: "Demandes en attente de réponse"
+        rdvConfirmes:
+          type: integer
+          example: 12
+          description: "RDV confirmés à venir"
+        revenus:
+          type: object
+          properties:
+            moisActuel:
+              type: number
+              example: 700000.00
+              description: "Revenus du mois en cours"
+            devise:
+              type: string
+              example: "XOF"
+      required:
+        - totalRendezVous
+        - totalPatients
+        - rdvTerminesMoisActuel
+        - rdvEnAttente
+        - rdvConfirmes
+        - revenus
+
+    PlanningImmediat:
+      type: object
+      description: Planning immédiat et prochains RDV
+      properties:
+        aujourdHui:
+          type: integer
+          example: 3
+          description: "RDV confirmés aujourd'hui"
+        demain:
+          type: integer
+          example: 2
+          description: "RDV confirmés demain"
+        semaineProchaine:
+          type: integer
+          example: 8
+          description: "RDV confirmés la semaine prochaine"
+        prochainsRendezVous:
+          type: array
+          items:
+            $ref: '#/components/schemas/RendezVousSummary'
+          maxItems: 10
+          description: "Liste des 10 prochains RDV"
+      required:
+        - aujourdHui
+        - demain
+        - semaineProchaine
+        - prochainsRendezVous
+
+    RendezVousSummary:
+      type: object
+      description: Résumé d'un rendez-vous pour le dashboard
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "r1d2v3a4-b5c6-7890-abcd-ef1234567890"
+        date:
+          type: string
+          format: date-time
+          example: "2024-01-16T09:30:00.000Z"
+        patient:
+          type: string
+          example: "Marie KOUASSI"
+          description: "Nom complet du patient"
+        telephone:
+          type: string
+          example: "+22507080910"
+        typeConsultation:
+          type: string
+          enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+          example: "CLINIQUE"
+        motif:
+          type: string
+          nullable: true
+          example: "Consultation de suivi cardiologique"
+        duree:
+          type: integer
+          example: 30
+          description: "Durée estimée en minutes"
+        statut:
+          type: string
+          enum: [CONFIRME, EN_COURS]
+          example: "CONFIRME"
+        dansXHeures:
+          type: integer
+          example: 18
+          description: "Heures restantes avant le RDV"
+      required:
+        - id
+        - date
+        - patient
+        - typeConsultation
+        - statut
+        - dansXHeures
+
+    DemandesEnAttente:
+      type: object
+      description: Demandes de RDV en attente de traitement
+      properties:
+        nombreEnAttente:
+          type: integer
+          example: 5
+        liste:
+          type: array
+          items:
+            $ref: '#/components/schemas/DemandeRendezVousSummary'
+          maxItems: 10
+          description: "Liste des demandes en attente"
+        tempsReponseActuel:
+          type: string
+          nullable: true
+          example: "18h"
+          description: "Temps de réponse moyen actuel"
+        tempsReponseCible:
+          type: string
+          example: "24h"
+          description: "Objectif de temps de réponse"
+      required:
+        - nombreEnAttente
+        - liste
+        - tempsReponseCible
+
+    DemandeRendezVousSummary:
+      type: object
+      description: Résumé d'une demande de RDV en attente
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "d1a2b3c4-e5f6-7890-abcd-ef1234567890"
+        dateeDemande:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:15:30.000Z"
+        patient:
+          type: string
+          example: "Pierre ASSOUAN"
+        telephone:
+          type: string
+          example: "+22508123456"
+        datesouhaitee:
+          type: string
+          format: date-time
+          example: "2024-01-17T14:00:00.000Z"
+        typeConsultation:
+          type: string
+          enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
+          example: "DOMICILE"
+        motif:
+          type: string
+          nullable: true
+          example: "Douleurs thoraciques"
+        niveauUrgence:
+          type: string
+          enum: [NORMAL, URGENT, TRES_URGENT]
+          example: "URGENT"
+        enAttenteDepuis:
+          type: integer
+          example: 6
+          description: "Heures écoulées depuis la demande"
+        statut:
+          type: string
+          enum: [DEMANDE, EN_ATTENTE]
+          example: "EN_ATTENTE"
+      required:
+        - id
+        - dateeDemande
+        - patient
+        - datesouhaitee
+        - typeConsultation
+        - enAttenteDepuis
+        - statut
+
+    PerformanceMedecin:
+      type: object
+      description: Métriques de performance et évaluations
+      properties:
+        evaluations:
+          $ref: '#/components/schemas/EvaluationsPerformance'
+        consultations:
+          $ref: '#/components/schemas/ConsultationsPerformance'
+      required:
+        - evaluations
+        - consultations
+
+    EvaluationsPerformance:
+      type: object
+      properties:
+        nombre:
+          type: integer
+          example: 47
+          description: "Nombre total d'évaluations"
+        moyenneNotes:
+          type: number
+          format: float
+          nullable: true
+          example: 4.2
+          description: "Note moyenne sur 5"
+        tauxRecommandation:
+          type: integer
+          nullable: true
+          example: 88
+          description: "Pourcentage de patients qui recommandent"
+        dernieresEvaluations:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationRecente'
+          maxItems: 5
+          description: "5 dernières évaluations"
+
+    EvaluationRecente:
+      type: object
+      properties:
+        note:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        commentaire:
+          type: string
+          nullable: true
+          example: "Excellent médecin, très à l'écoute"
+        recommande:
+          type: boolean
+          example: true
+        patient:
+          type: string
+          example: "M***"
+          description: "Prénom anonymisé du patient"
+        date:
+          type: string
+          format: date-time
+          example: "2024-01-10T16:45:00.000Z"
+
+    ConsultationsPerformance:
+      type: object
+      properties:
+        repartitionTypes:
+          type: object
+          properties:
+            clinique:
+              type: integer
+              example: 18
+            domicile:
+              type: integer
+              example: 8
+            teleconsultation:
+              type: integer
+              example: 2
+        total:
+          type: integer
+          example: 28
+          description: "Total consultations ce mois"
+
+    AlertesRecommandations:
+      type: object
+      description: Alertes importantes et recommandations d'actions
+      properties:
+        urgentes:
+          type: array
+          items:
+            type: string
+          example: [
+            "5 demandes en attente de réponse",
+            "3 RDV aujourd'hui"
+          ]
+          description: "Alertes nécessitant une attention immédiate"
+        recommandations:
+          type: array
+          items:
+            type: string
+          example: [
+            "Encourager les patients à laisser des évaluations",
+            "Activité faible ce mois-ci"
+          ]
+          description: "Suggestions d'amélioration"
+      required:
+        - urgentes
+        - recommandations
+
+    MetadataDashboard:
+      type: object
+      description: Métadonnées du dashboard
+      properties:
+        derniereActualisation:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+        periodAnalysee:
+          type: string
+          example: "Mois en cours"
+          description: "Période d'analyse des statistiques"
+        versionDashboard:
+          type: string
+          example: "1.0"
+      required:
+        - derniereActualisation
+        - periodAnalysee
+        - versionDashboard

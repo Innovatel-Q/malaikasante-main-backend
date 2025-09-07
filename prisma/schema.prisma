@@ -294,6 +294,11 @@ model Medecin {
  accepteclinique         Boolean          @default(true) @map("accepte_clinique")
  noteMoyenne             Decimal          @default(0) @db.Decimal(2, 1) @map("note_moyenne")
  nombreEvaluations       Int              @default(0) @map("nombre_evaluations")
+ 
+ // Photos et média
+ photoProfile            Json?            @map("photo_profile") // {fileId, nom_fichier, taille, mime_type, upload_date, file_path, relative_path}
+ photoCabinet            Json?            @map("photo_cabinet") // {fileId, nom_fichier, taille, mime_type, upload_date, file_path, relative_path}
+ videoPresentation       Json?            @map("video_presentation") // {fileId, nom_fichier, taille, mime_type, upload_date, file_path, relative_path}
 
  // Relations
  user User @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -1,0 +1,222 @@
+openapi: 3.0.0
+paths:
+  /v1/medecins/profile:
+    get:
+      tags:
+        - Médecins
+      summary: Récupérer le profil complet du médecin
+      description: |
+        Consultation du profil médecin complet avec toutes les informations :
+        - **Informations personnelles** : nom, email, téléphone
+        - **Informations professionnelles** : numéro Ordre, spécialités, bio
+        - **Paramètres consultation** : tarifs, types acceptés (domicile, clinique, télé)
+        - **Médias** : photos de profil et cabinet avec URLs générées
+        - **Documents** : diplômes et certifications avec accès direct
+        - **Clinique associée** : informations complètes si applicable
+        
+        Profil unifié pour l'interface médecin.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profil médecin récupéré avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Profil médecin récupéré avec succès"
+                  data:
+                    $ref: '#/components/schemas/ProfilMedecinComplete'
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Accès refusé - Rôle médecin requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "ACCESS_DENIED"
+                message: "Accès réservé aux médecins"
+        '404':
+          description: Profil médecin non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "MEDECIN_PROFILE_NOT_FOUND"
+                message: "Profil médecin non trouvé"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ProfilMedecinComplete:
+      type: object
+      description: Profil médecin complet avec toutes les informations
+      properties:
+        # Identifiants
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: "ID unique du profil médecin"
+        
+        # Informations personnelles
+        nom:
+          type: string
+          example: "KOUAME"
+        prenom:
+          type: string
+          example: "Jean-Baptiste"
+        email:
+          type: string
+          format: email
+          example: "jb.kouame@email.com"
+        telephone:
+          type: string
+          example: "0708123456"
+        
+        # Informations professionnelles
+        numeroOrdre:
+          type: string
+          example: "CI-MED-12345"
+          description: "Numéro d'inscription à l'Ordre des Médecins"
+        bio:
+          type: string
+          nullable: true
+          example: "Cardiologue expérimenté avec 15 ans de pratique en Côte d'Ivoire"
+          description: "Biographie professionnelle"
+        specialites:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecialiteMedicale'
+          example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+        experienceAnnees:
+          type: integer
+          nullable: true
+          example: 15
+          description: "Années d'expérience professionnelle"
+        languesParlees:
+          type: array
+          items:
+            $ref: '#/components/schemas/LangueParlée'
+          example: ["FRANCAIS", "DIOULA", "ANGLAIS"]
+        
+        # Paramètres de consultation
+        tarifConsultationBase:
+          type: number
+          format: float
+          nullable: true
+          example: 25000.00
+          description: "Tarif de base en FCFA"
+        accepteDomicile:
+          type: boolean
+          example: true
+        accepteTeleconsultation:
+          type: boolean
+          example: true
+        accepteclinique:
+          type: boolean
+          example: true
+        
+        # Statut et validation
+        statutValidation:
+          $ref: '#/components/schemas/StatutValidationMedecin'
+        noteMoyenne:
+          type: number
+          format: float
+          nullable: true
+          example: 4.2
+          description: "Note moyenne des évaluations patients"
+        nombreEvaluations:
+          type: integer
+          example: 47
+          description: "Nombre total d'évaluations reçues"
+        
+        # Médias avec URLs générées
+        photoProfile:
+          type: string
+          format: uri
+          nullable: true
+          example: "http://localhost:3000/files/uploads/photos/profil/photo-profil-5-1704461422123-profile.jpg"
+          description: "URL de la photo de profil (null si aucune)"
+        photoCabinet:
+          type: string
+          format: uri
+          nullable: true
+          example: "http://localhost:3000/files/uploads/photos/cabinet/photo-cabinet-5-1704461422123-cabinet.jpg"
+          description: "URL de la photo du cabinet (null si aucune)"
+        
+        # Documents avec URLs d'accès
+        diplomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentAvecURL'
+          description: "Liste des diplômes avec URLs d'accès"
+        certifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentAvecURL'
+          description: "Liste des certifications avec URLs d'accès"
+        
+        # Clinique associée (si applicable)
+        clinique:
+          allOf:
+            - $ref: '#/components/schemas/CliniqueInfo'
+            - type: object
+              nullable: true
+              description: "Informations de la clinique d'exercice (null si indépendant)"
+      
+      required:
+        - id
+        - nom
+        - prenom
+        - email
+        - telephone
+        - numeroOrdre
+        - specialites
+        - accepteDomicile
+        - accepteTeleconsultation
+        - accepteclinique
+        - statutValidation
+        - nombreEvaluations
+        - diplomes
+        - certifications
+
+    DocumentAvecURL:
+      type: object
+      description: Document médical avec URL d'accès direct
+      properties:
+        nom:
+          type: string
+          example: "Diplôme de Docteur en Médecine"
+          description: "Libellé descriptif du document"
+        url:
+          type: string
+          format: uri
+          nullable: true
+          example: "http://localhost:3000/files/uploads/medecins/diplomes/diplome-12345-abcdef.pdf"
+          description: "URL d'accès direct au document (null si non disponible)"
+      required:
+        - nom
+
+  # Réutilisation des schémas existants depuis medecin-schemas.yaml
+  # Les schémas suivants devraient être définis dans components/medecin-schemas.yaml :
+  # - SpecialiteMedicale
+  # - StatutValidationMedecin  
+  # - LangueParlée
+  # - CliniqueInfo

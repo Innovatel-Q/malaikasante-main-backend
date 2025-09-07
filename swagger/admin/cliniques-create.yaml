@@ -1,0 +1,623 @@
+openapi: 3.0.0
+info:
+  title: Admin Clinic Creation API
+  description: Création de nouvelles cliniques par les administrateurs
+  version: 1.0.0
+
+paths:
+  /v1/admin/cliniques:
+    post:
+      tags:
+        - Administration
+      summary: Créer une nouvelle clinique
+      description: |
+        Permet aux administrateurs de créer une nouvelle clinique dans le système.
+        
+        **🏥 Fonctionnalités :**
+        - ✅ **Validation complète** : Vérification d'unicité (nom, email)
+        - 🗺️ **Géolocalisation** : Support des coordonnées GPS optionnelles
+        - 📅 **Horaires flexibles** : Configuration des heures d'ouverture par jour
+        - 🏥 **Services médicaux** : Liste des services offerts
+        - 📊 **Traçabilité** : Historique des actions admin
+        
+        **📋 Données configurables :**
+        
+        **Informations de base** (requises) :
+        - Nom de la clinique (unique par ville)
+        - Adresse complète et ville
+        
+        **Informations optionnelles** :
+        - Téléphone et email de contact
+        - Coordonnées GPS (latitude/longitude)
+        - Horaires d'ouverture par jour de semaine
+        - Services médicaux proposés
+        
+        **🔄 Workflow :**
+        1. Admin fournit les informations de la clinique
+        2. Système valide l'unicité du nom dans la ville
+        3. Validation de l'email si fourni
+        4. Validation des horaires et services
+        5. Création en base avec statut actif
+        6. Réponse avec ID généré et statistiques
+        
+        **⚠️ Contraintes de sécurité :**
+        - Nom unique par ville pour éviter confusions
+        - Email unique sur toute la plateforme
+        - Validation stricte des horaires et services
+        - Coordonnées GPS cohérentes (latitude ET longitude)
+        
+        **User Stories :** Admin-US6 (Gestion des cliniques)
+
+      security:
+        - bearerAuth: []
+      
+      requestBody:
+        required: true
+        description: |
+          **Création complète** : Nom et adresse sont obligatoires, autres champs optionnels.
+          
+          ⚠️ **IMPORTANT** : Seuls nom et adresse sont requis, tous les autres champs sont optionnels.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                # === DONNÉES OBLIGATOIRES ===
+                nom:
+                  type: string
+                  minLength: 3
+                  maxLength: 200
+                  description: |
+                    Nom officiel de la clinique
+                    
+                    **⚠️ Unicité requise** : Vérifié par ville
+                    **Contraintes :**
+                    - 3-200 caractères
+                    - Unique dans la ville spécifiée
+                  example: "Clinique Internationale d'Abidjan"
+                
+                adresse:
+                  type: string
+                  minLength: 10
+                  maxLength: 1000
+                  description: |
+                    Adresse complète de la clinique
+                    
+                    **Format recommandé :**
+                    Numéro, rue, quartier, références géographiques
+                  example: "Boulevard de la République, Plateau, en face de la cathédrale Saint-Paul"
+                
+                # === DONNÉES OPTIONNELLES ===
+                ville:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: |
+                    Ville d'implantation de la clinique
+                    
+                    **Par défaut :** Abidjan (si non spécifié)
+                    **Usage :** Utilisé pour vérifier l'unicité du nom
+                  example: "Abidjan"
+                
+                telephone:
+                  type: string
+                  pattern: '^(\+225|0)[0-9]{8,10}$'
+                  description: |
+                    Numéro de téléphone principal de la clinique
+                    
+                    **Formats acceptés :**
+                    - `+225XXXXXXXX` (international)
+                    - `0XXXXXXXXX` (national)
+                  example: "+22521234567"
+                
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                  description: |
+                    Adresse email de contact de la clinique
+                    
+                    **⚠️ Unicité requise** : Vérifié sur toute la plateforme
+                    **Usage :** Contact administratif et communications
+                  example: "contact@clinique-abidjan.ci"
+                
+                # === GÉOLOCALISATION ===
+                latitude:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                  description: |
+                    Latitude GPS de la clinique
+                    
+                    **⚠️ Requis avec longitude** : Les deux coordonnées doivent être fournies ensemble
+                    **Usage :** Géolocalisation pour patients, calcul distances
+                  example: 5.3157
+                
+                longitude:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+                  description: |
+                    Longitude GPS de la clinique
+                    
+                    **⚠️ Requis avec latitude** : Les deux coordonnées doivent être fournies ensemble
+                    **Usage :** Géolocalisation pour patients, calcul distances
+                  example: -4.0217
+                
+                # === HORAIRES D'OUVERTURE ===
+                horaires:
+                  type: object
+                  description: |
+                    Horaires d'ouverture par jour de la semaine
+                    
+                    **Structure :** `{ "JOUR": { "ouverture": "HH:mm", "fermeture": "HH:mm" } }`
+                    **Jours valides :** LUNDI, MARDI, MERCREDI, JEUDI, VENDREDI, SAMEDI, DIMANCHE
+                  properties:
+                    LUNDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                          example: "08:00"
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                          example: "17:00"
+                      required: [ouverture, fermeture]
+                    MARDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    MERCREDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    JEUDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    VENDREDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    SAMEDI:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                    DIMANCHE:
+                      type: object
+                      properties:
+                        ouverture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                        fermeture:
+                          type: string
+                          pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+                      required: [ouverture, fermeture]
+                  example:
+                    LUNDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    MARDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    MERCREDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    JEUDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    VENDREDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    SAMEDI: { "ouverture": "09:00", "fermeture": "13:00" }
+                
+                # === SERVICES MÉDICAUX ===
+                services:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - CONSULTATION_GENERALE
+                      - URGENCES
+                      - CHIRURGIE
+                      - MATERNITE
+                      - PEDIATRIE
+                      - CARDIOLOGIE
+                      - RADIOLOGIE
+                      - LABORATOIRE
+                      - PHARMACIE
+                      - DENTAIRE
+                      - OPHTALMOLOGIE
+                      - DERMATOLOGIE
+                      - GYNECOLOGIE
+                      - PSYCHIATRIE
+                      - KINESITHERAPIE
+                      - DIALYSE
+                      - ONCOLOGIE
+                  uniqueItems: true
+                  description: |
+                    Services médicaux proposés par la clinique
+                    
+                    **Usage :** Filtrage pour patients, association médecins-services
+                    **Validation :** Uniquement les services de la liste officielle
+                  example: ["CONSULTATION_GENERALE", "URGENCES", "RADIOLOGIE", "LABORATOIRE"]
+
+              required:
+                - nom
+                - adresse
+
+            examples:
+              clinique_complete:
+                summary: Clinique complète avec tous les services
+                description: Exemple de création d'une clinique avec toutes les informations
+                value:
+                  nom: "Clinique Internationale d'Abidjan"
+                  adresse: "Boulevard de la République, Plateau, en face de la cathédrale Saint-Paul"
+                  ville: "Abidjan"
+                  telephone: "+22521234567"
+                  email: "contact@clinique-abidjan.ci"
+                  latitude: 5.3157
+                  longitude: -4.0217
+                  horaires:
+                    LUNDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    MARDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    MERCREDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    JEUDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    VENDREDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                    SAMEDI: { "ouverture": "09:00", "fermeture": "13:00" }
+                  services: ["CONSULTATION_GENERALE", "URGENCES", "RADIOLOGIE", "LABORATOIRE", "PHARMACIE"]
+              
+              clinique_minimale:
+                summary: Clinique avec informations minimales
+                description: Exemple de création avec seulement les champs obligatoires
+                value:
+                  nom: "Cabinet Médical Dr Kouame"
+                  adresse: "Rue des Jardins, Cocody Riviera, près du marché"
+              
+              clinique_avec_gps:
+                summary: Clinique avec géolocalisation
+                description: Exemple incluant les coordonnées GPS pour géolocalisation
+                value:
+                  nom: "Polyclinique de Yamoussoukro"
+                  adresse: "Avenue Houphouët-Boigny, centre-ville"
+                  ville: "Yamoussoukro"
+                  telephone: "+22530456789"
+                  latitude: 6.8205
+                  longitude: -5.2767
+                  services: ["CONSULTATION_GENERALE", "MATERNITE", "PEDIATRIE"]
+              
+              clinique_horaires_personnalises:
+                summary: Clinique avec horaires spécialisés
+                description: Exemple avec horaires d'ouverture personnalisés
+                value:
+                  nom: "Clinique des Urgences 24h/24"
+                  adresse: "Carrefour Solibra, Yopougon"
+                  ville: "Abidjan"
+                  telephone: "+22507123456"
+                  email: "urgences@clinique24h.ci"
+                  horaires:
+                    LUNDI: { "ouverture": "00:00", "fermeture": "23:59" }
+                    MARDI: { "ouverture": "00:00", "fermeture": "23:59" }
+                    MERCREDI: { "ouverture": "00:00", "fermeture": "23:59" }
+                    JEUDI: { "ouverture": "00:00", "fermeture": "23:59" }
+                    VENDREDI: { "ouverture": "00:00", "fermeture": "23:59" }
+                    SAMEDI: { "ouverture": "00:00", "fermeture": "23:59" }
+                    DIMANCHE: { "ouverture": "00:00", "fermeture": "23:59" }
+                  services: ["URGENCES", "CONSULTATION_GENERALE", "CHIRURGIE"]
+
+      responses:
+        '201':
+          description: Clinique créée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Clinique créée avec succès"
+                  data:
+                    type: object
+                    properties:
+                      clinique:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                            example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom:
+                            type: string
+                            example: "Clinique Internationale d'Abidjan"
+                          adresse:
+                            type: string
+                            example: "Boulevard de la République, Plateau"
+                          ville:
+                            type: string
+                            example: "Abidjan"
+                          telephone:
+                            type: string
+                            nullable: true
+                            example: "+22521234567"
+                          email:
+                            type: string
+                            nullable: true
+                            example: "contact@clinique-abidjan.ci"
+                          latitude:
+                            type: number
+                            nullable: true
+                            example: 5.3157
+                          longitude:
+                            type: number
+                            nullable: true
+                            example: -4.0217
+                          horaires:
+                            type: object
+                            nullable: true
+                            example: { "LUNDI": { "ouverture": "08:00", "fermeture": "17:00" } }
+                          services:
+                            type: array
+                            nullable: true
+                            items:
+                              type: string
+                            example: ["CONSULTATION_GENERALE", "URGENCES"]
+                          active:
+                            type: boolean
+                            example: true
+                          createdAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                      creationInfo:
+                        type: object
+                        description: Informations sur la création
+                        properties:
+                          createdBy:
+                            type: string
+                            example: "Admin Marie Kouassi"
+                          createdAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            example: "192.168.1.100"
+                      nextSteps:
+                        type: array
+                        items:
+                          type: string
+                        description: Étapes suivantes suggérées
+                        example: [
+                          "La clinique est maintenant active et visible",
+                          "Les médecins peuvent maintenant s'y associer",
+                          "Vous pouvez modifier les informations via PUT /admin/cliniques/:id"
+                        ]
+                      statistics:
+                        type: object
+                        description: Statistiques après création
+                        properties:
+                          totalCliniques:
+                            type: integer
+                            example: 15
+                          nouvelleCliqueAjoutee:
+                            type: boolean
+                            example: true
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                clinique_creee:
+                  summary: Clinique créée avec succès
+                  value:
+                    success: true
+                    message: "Clinique créée avec succès"
+                    data:
+                      clinique:
+                        id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                        nom: "Clinique Internationale d'Abidjan"
+                        adresse: "Boulevard de la République, Plateau"
+                        ville: "Abidjan"
+                        telephone: "+22521234567"
+                        email: "contact@clinique-abidjan.ci"
+                        latitude: 5.3157
+                        longitude: -4.0217
+                        horaires:
+                          LUNDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                          MARDI: { "ouverture": "08:00", "fermeture": "17:00" }
+                        services: ["CONSULTATION_GENERALE", "URGENCES", "RADIOLOGIE"]
+                        active: true
+                        createdAt: "2024-01-15T14:30:22.123Z"
+                      creationInfo:
+                        createdBy: "Admin Marie Kouassi"
+                        createdAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                      nextSteps: [
+                        "La clinique est maintenant active et visible",
+                        "Les médecins peuvent maintenant s'y associer",
+                        "Vous pouvez modifier les informations via PUT /admin/cliniques/:id",
+                        "Ajoutez des médecins via leur profil individuel"
+                      ]
+                      statistics:
+                        totalCliniques: 15
+                        nouvelleCliqueAjoutee: true
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Requête invalide - Données malformées ou contraintes violées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validation_champs:
+                  summary: Erreurs de validation des champs
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "Paramètres de requête invalides"
+                    details:
+                      nom: "Le nom doit contenir entre 3 et 200 caractères"
+                      adresse: "L'adresse doit contenir au moins 10 caractères"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                nom_deja_utilise:
+                  summary: Nom de clinique déjà utilisé dans la ville
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Une clinique avec ce nom existe déjà dans cette ville"
+                    details:
+                      code: "CLINIQUE_NAME_EXISTS"
+                      field: "nom"
+                      conflict:
+                        nom: "Clinique Internationale"
+                        ville: "Abidjan"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                email_deja_utilise:
+                  summary: Email déjà utilisé par une autre clinique
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Cette adresse email est déjà utilisée"
+                    details:
+                      code: "EMAIL_ALREADY_EXISTS"
+                      field: "email"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                horaires_invalides:
+                  summary: Format d'horaires incorrect
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Horaires incomplets pour LUNDI"
+                    details:
+                      code: "INCOMPLETE_HOURS"
+                      field: "horaires"
+                      day: "LUNDI"
+                      required: ["ouverture", "fermeture"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                services_invalides:
+                  summary: Services non reconnus
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Services non reconnus"
+                    details:
+                      code: "INVALID_SERVICES"
+                      field: "services"
+                      invalidServices: ["SERVICE_INEXISTANT", "AUTRE_SERVICE"]
+                      availableServices: ["CONSULTATION_GENERALE", "URGENCES", "CHIRURGIE"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                coordonnees_gps_incompletes:
+                  summary: Coordonnées GPS incomplètes
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Latitude et longitude doivent être fournies ensemble"
+                    details:
+                      code: "INCOMPLETE_GPS_COORDINATES"
+                      message: "Si vous fournissez des coordonnées GPS, latitude ET longitude sont requises"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '403':
+          description: Accès refusé - Réservé aux administrateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "FORBIDDEN"
+                message: "Accès réservé aux administrateurs"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ERROR_CODE"
+        message:
+          type: string
+          example: "Description de l'erreur"
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+
+  responses:
+    Unauthorized:
+      description: Non authentifié - Token manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "Token d'authentification requis"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    ServerError:
+      description: Erreur interne du serveur
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "INTERNAL_SERVER_ERROR"
+            message: "Erreur interne lors de la création de la clinique"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT d'administrateur obtenu lors de la connexion.
+        Format: `Authorization: Bearer <admin_token>`

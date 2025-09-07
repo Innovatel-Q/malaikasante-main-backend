@@ -1,21 +1,19 @@
 openapi: 3.0.0
-info:
-  title: Medecin Validation Status API
-  description: Consultation du statut de validation du compte médecin
-  version: 1.0.0
-
 paths:
   /v1/medecins/validation-status:
     get:
       tags:
         - Médecins
-      summary: Consulter le statut de validation du compte médecin
+      summary: Consultation du statut de validation médecin
       description: |
-        Permet aux médecins de consulter le statut de validation de leur compte.
-
+        Récupère le statut de validation détaillé d'un médecin avec :
+        - Statut actuel (EN_ATTENTE, VALIDE, REJETE)
+        - Temps écoulé depuis la demande
+        - Actions recommandées selon le statut
+        - Informations de contact pour assistance
+        - Détails de rejet si applicable
       security:
         - bearerAuth: []
-
       responses:
         '200':
           description: Statut de validation récupéré avec succès
@@ -31,331 +29,200 @@ paths:
                     type: string
                     example: "Statut de validation récupéré"
                   data:
-                    type: object
-                    properties:
-                      validationStatus:
-                        type: object
-                        properties:
-                          current:
-                            type: string
-                            enum: [EN_ATTENTE, VALIDE, REJETE]
-                            example: "EN_ATTENTE"
-                          dateValidation:
-                            type: string
-                            format: date
-                            nullable: true
-                            example: null
-                          motifRejet:
-                            type: string
-                            nullable: true
-                            example: null
-                          timeElapsed:
-                            type: string
-                            description: "Temps écoulé depuis la demande"
-                            example: "12h"
-                          estimatedTime:
-                            type: string
-                            nullable: true
-                            description: "Temps estimé restant"
-                            example: "12h restantes (estimation)"
-                          statusInfo:
-                            type: object
-                            properties:
-                              message:
-                                type: string
-                                example: "Votre compte médecin est en cours de validation par notre équipe administrative."
-                              description:
-                                type: string
-                                example: "Nous vérifions actuellement vos documents et informations professionnelles."
-                              priority:
-                                type: string
-                                enum: [NORMALE, URGENTE, VALIDÉ]
-                                example: "NORMALE"
-                              canPractice:
-                                type: boolean
-                                example: false
-                      medecinInfo:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                            example: "medecin-123"
-                          numeroOrdre:
-                            type: string
-                            example: "CI123456"
-                          specialites:
-                            type: array
-                            items:
-                              type: string
-                            example: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
-                          bio:
-                            type: string
-                            nullable: true
-                            example: "Cardiologue avec 15 ans d'expérience"
-                          experienceAnnees:
-                            type: integer
-                            nullable: true
-                            example: 15
-                      validationDetails:
-                        type: object
-                        properties:
-                          nextSteps:
-                            type: array
-                            items:
-                              type: string
-                            example:
-                              - "Patientez pendant la validation de votre dossier"
-                              - "Vérifiez que tous vos documents sont bien lisibles"
-                              - "Vous recevrez un email de confirmation une fois validé"
-                          documentsRequired:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                type:
-                                  type: string
-                                description:
-                                  type: string
-                                required:
-                                  type: boolean
-                            example:
-                              - type: "Diplôme de médecine"
-                                description: "Copie certifiée conforme du diplôme"
-                                required: true
-                              - type: "Certificat d'inscription à l'Ordre"
-                                description: "Certificat d'inscription à l'Ordre des Médecins de Côte d'Ivoire"
-                                required: true
-                          contactInfo:
-                            type: object
-                            properties:
-                              email:
-                                type: string
-                                example: "validation@medecins-patients.ci"
-                              telephone:
-                                type: string
-                                example: "+225 XX XX XX XX"
-                              horaires:
-                                type: string
-                                example: "Lundi-Vendredi 8h-17h"
-                      waitingDetails:
-                        type: object
-                        nullable: true
-                        description: "Présent uniquement si statut EN_ATTENTE"
-                        properties:
-                          queuePosition:
-                            type: string
-                            example: "Information non disponible"
-                          averageProcessingTime:
-                            type: string
-                            example: "24-48 heures"
-                          workingDays:
-                            type: string
-                            example: "Lundi-Vendredi"
-                          holidays:
-                            type: string
-                            example: "Traitement suspendu les weekends et jours fériés"
+                    $ref: '#/components/schemas/ValidationStatusResponse'
                   timestamp:
                     type: string
                     format: date-time
                     example: "2024-01-15T14:30:22.123Z"
-              examples:
-                en_attente:
-                  summary: Médecin en attente de validation
-                  value:
-                    success: true
-                    message: "Statut de validation récupéré"
-                    data:
-                      validationStatus:
-                        current: "EN_ATTENTE"
-                        dateValidation: null
-                        motifRejet: null
-                        timeElapsed: "12h"
-                        estimatedTime: "12h restantes (estimation)"
-                        statusInfo:
-                          message: "Votre compte médecin est en cours de validation par notre équipe administrative."
-                          description: "Nous vérifions actuellement vos documents et informations professionnelles."
-                          priority: "NORMALE"
-                          canPractice: false
-                      medecinInfo:
-                        id: "medecin-123"
-                        numeroOrdre: "CI123456"
-                        specialites: ["CARDIOLOGIE"]
-                        bio: "Cardiologue expérimenté"
-                        experienceAnnees: 15
-                      validationDetails:
-                        nextSteps:
-                          - "Patientez pendant la validation de votre dossier"
-                          - "Vérifiez que tous vos documents sont bien lisibles"
-                          - "Vous recevrez un email de confirmation une fois validé"
-                        contactInfo:
-                          email: "validation@medecins-patients.ci"
-                          telephone: "+225 XX XX XX XX"
-                          horaires: "Lundi-Vendredi 8h-17h"
-                      waitingDetails:
-                        averageProcessingTime: "24-48 heures"
-                        workingDays: "Lundi-Vendredi"
-                    timestamp: "2024-01-15T14:30:22.123Z"
-                valide:
-                  summary: Médecin validé
-                  value:
-                    success: true
-                    message: "Statut de validation récupéré"
-                    data:
-                      validationStatus:
-                        current: "VALIDE"
-                        dateValidation: "2024-01-14"
-                        motifRejet: null
-                        timeElapsed: "36h"
-                        estimatedTime: null
-                        statusInfo:
-                          message: "Félicitations ! Votre compte médecin est validé et actif."
-                          description: "Vous pouvez maintenant exercer pleinement sur la plateforme."
-                          priority: "VALIDÉ"
-                          canPractice: true
-                      medecinInfo:
-                        id: "medecin-456"
-                        numeroOrdre: "CI789012"
-                        specialites: ["PEDIATRIE"]
-                        bio: "Pédiatre spécialisé"
-                        experienceAnnees: 8
-                      validationDetails:
-                        nextSteps:
-                          - "Complétez votre profil si nécessaire"
-                          - "Configurez vos disponibilités"
-                          - "Commencez à recevoir des demandes de rendez-vous"
-                        validatedBy:
-                          nom: "Admin"
-                          prenom: "Système"
-                          email: "admin@medecins-patients.ci"
-                        contactInfo:
-                          email: "validation@medecins-patients.ci"
-                          telephone: "+225 XX XX XX XX"
-                          horaires: "Lundi-Vendredi 8h-17h"
-                    timestamp: "2024-01-15T14:30:22.123Z"
-                rejete:
-                  summary: Médecin rejeté
-                  value:
-                    success: true
-                    message: "Statut de validation récupéré"
-                    data:
-                      validationStatus:
-                        current: "REJETE"
-                        dateValidation: null
-                        motifRejet: "Documents illisibles, numéro d'ordre invalide"
-                        timeElapsed: "48h"
-                        estimatedTime: null
-                        statusInfo:
-                          message: "Votre demande de validation a été rejetée."
-                          description: "Des éléments de votre dossier nécessitent des corrections ou compléments."
-                          priority: "URGENT"
-                          canPractice: false
-                      medecinInfo:
-                        id: "medecin-789"
-                        numeroOrdre: "CI999999"
-                        specialites: ["MEDECINE_GENERALE"]
-                        bio: null
-                        experienceAnnees: null
-                      validationDetails:
-                        nextSteps:
-                          - "Consultez le motif de rejet ci-dessous"
-                          - "Corrigez les éléments mentionnés"
-                          - "Contactez notre équipe pour resoumission"
-                        contactInfo:
-                          email: "validation@medecins-patients.ci"
-                          telephone: "+225 XX XX XX XX"
-                          horaires: "Lundi-Vendredi 8h-17h"
-                      rejectionDetails:
-                        motif: "Documents illisibles, numéro d'ordre invalide"
-                        actions:
-                          - "Corriger les documents mentionnés"
-                          - "Contacter l'équipe de validation"
-                          - "Resoummettre le dossier complet"
-                        urgency: "HAUTE"
-                    timestamp: "2024-01-15T14:30:22.123Z"
-
         '401':
-          description: Authentification requise
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                    enum: ["UNAUTHORIZED"]
-                  message:
-                    type: string
-                    example: "Token d'authentification requis"
-                  timestamp:
-                    type: string
-                    format: date-time
-
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Accès interdit (non-médecin)
+          description: Accès refusé - Rôle médecin requis
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                    enum: ["FORBIDDEN"]
-                  message:
-                    type: string
-                    example: "Accès refusé - Permissions insuffisantes"
-                  timestamp:
-                    type: string
-                    format: date-time
-
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "ACCESS_DENIED"
+                message: "Accès réservé aux médecins"
         '404':
           description: Profil médecin non trouvé
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                    enum: ["NOT_FOUND"]
-                  message:
-                    type: string
-                    example: "Profil médecin non trouvé"
-                  timestamp:
-                    type: string
-                    format: date-time
-
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "MEDECIN_PROFILE_NOT_FOUND"
+                message: "Profil médecin non trouvé"
         '500':
-          description: Erreur serveur interne
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                    enum: ["INTERNAL_SERVER_ERROR"]
-                  message:
-                    type: string
-                    example: "Erreur lors de la consultation du statut"
-                  timestamp:
-                    type: string
-                    format: date-time
+          $ref: '#/components/responses/ServerError'
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+  schemas:
+    ValidationStatusResponse:
+      type: object
+      description: Réponse complète du statut de validation
+      properties:
+        validationStatus:
+          type: object
+          properties:
+            current:
+              $ref: '#/components/schemas/StatutValidationMedecin'
+            dateValidation:
+              type: string
+              format: date
+              nullable: true
+              example: "2024-01-15"
+              description: "Date de validation si statut VALIDE"
+            motifRejet:
+              type: string
+              nullable: true
+              example: "Documents illisibles, veuillez fournir des copies plus claires"
+              description: "Motif de rejet si statut REJETE"
+            timeElapsed:
+              type: string
+              example: "48h"
+              description: "Temps écoulé depuis la demande"
+            estimatedTime:
+              type: string
+              nullable: true
+              example: "Validation en cours, sous 48h"
+              description: "Temps estimé restant pour validation"
+            statusInfo:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Votre compte médecin est en cours de validation par notre équipe administrative."
+                description:
+                  type: string
+                  example: "Nous vérifions actuellement vos documents et informations professionnelles."
+                priority:
+                  type: string
+                  enum: [NORMALE, VALIDÉ, URGENT]
+                  example: "NORMALE"
+                canPractice:
+                  type: boolean
+                  example: false
+                  description: "Le médecin peut-il exercer sur la plateforme"
+        medecinInfo:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "123e4567-e89b-12d3-a456-426614174000"
+            numeroOrdre:
+              type: string
+              example: "CI-MED-12345"
+            specialites:
+              type: array
+              items:
+                $ref: '#/components/schemas/SpecialiteMedicale'
+              example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+            bio:
+              type: string
+              nullable: true
+              example: "Cardiologue avec 15 ans d'expérience"
+            experienceAnnees:
+              type: integer
+              nullable: true
+              example: 15
+        validationDetails:
+          type: object
+          properties:
+            nextSteps:
+              type: array
+              items:
+                type: string
+              example: [
+                "Patientez pendant la validation de votre dossier",
+                "Vérifiez que tous vos documents sont bien lisibles",
+                "Vous recevrez un email de confirmation une fois validé"
+              ]
+            documentsRequired:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "Diplôme de médecine"
+                  description:
+                    type: string
+                    example: "Copie certifiée conforme du diplôme"
+                  required:
+                    type: boolean
+                    example: true
+            contactInfo:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "validation@medecins-patients.ci"
+                telephone:
+                  type: string
+                  example: "+225 XX XX XX XX"
+                horaires:
+                  type: string
+                  example: "Lundi-Vendredi 8h-17h"
+            validatedBy:
+              type: object
+              nullable: true
+              description: "Informations de l'admin qui a validé (si VALIDE)"
+              properties:
+                nom:
+                  type: string
+                  example: "KOUAME"
+                prenom:
+                  type: string
+                  example: "Marie"
+                email:
+                  type: string
+                  format: email
+                  example: "marie.kouame@admin.ci"
+        rejectionDetails:
+          type: object
+          nullable: true
+          description: "Détails du rejet (si REJETE)"
+          properties:
+            motif:
+              type: string
+              example: "Documents illisibles"
+            actions:
+              type: array
+              items:
+                type: string
+              example: [
+                "Corriger les documents mentionnés",
+                "Contacter l'équipe de validation",
+                "Resoummettre le dossier complet"
+              ]
+            urgency:
+              type: string
+              enum: [BASSE, NORMALE, HAUTE]
+              example: "HAUTE"
+        waitingDetails:
+          type: object
+          nullable: true
+          description: "Détails de l'attente (si EN_ATTENTE)"
+          properties:
+            queuePosition:
+              type: string
+              example: "Information non disponible"
+            averageProcessingTime:
+              type: string
+              example: "24-48 heures"
+            workingDays:
+              type: string
+              example: "Lundi-Vendredi"
+            holidays:
+              type: string
+              example: "Traitement suspendu les weekends et jours fériés"
+      required:
+        - validationStatus
+        - medecinInfo
+        - validationDetails

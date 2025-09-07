@@ -255,7 +255,7 @@ router.get('/',
 
             // === CALCULS ET MÉTRIQUES ===
             const moyenneEvaluations = evaluationsRecentes.length > 0
-                ? evaluationsRecentes.reduce((sum, eval) => sum + eval.note, 0) / evaluationsRecentes.length
+                ? evaluationsRecentes.reduce((sum, evaluation) => sum + evaluation.note, 0) / evaluationsRecentes.length
                 : null;
 
             const tauxRecommandation = evaluationsRecentes.length > 0
@@ -352,12 +352,12 @@ router.get('/',
                         nombre: evaluationsRecentes.length,
                         moyenneNotes: moyenneEvaluations ? Math.round(moyenneEvaluations * 10) / 10 : null,
                         tauxRecommandation,
-                        dernieresEvaluations: evaluationsRecentes.map(eval => ({
-                            note: eval.note,
-                            commentaire: eval.commentaire,
-                            recommande: eval.recommande,
-                            patient: eval.evaluateur.patient?.user.prenom || 'Anonyme',
-                            date: eval.createdAt
+                        dernieresEvaluations: evaluationsRecentes.map(evaluation => ({
+                            note: evaluation.note,
+                            commentaire: evaluation.commentaire,
+                            recommande: evaluation.recommande,
+                            patient: evaluation.evaluateur.patient?.user.prenom || 'Anonyme',
+                            date: evaluation.createdAt
                         }))
                     },
                     consultations: {

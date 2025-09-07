@@ -1,0 +1,656 @@
+openapi: 3.0.0
+info:
+  title: Admin Doctors Profile Update API
+  description: Mise à jour complète des profils médecins par les administrateurs
+  version: 1.0.0
+
+paths:
+  /v1/admin/doctors/{medecinId}/profile:
+    put:
+      tags:
+        - Administration
+      summary: Mettre à jour le profil complet d'un médecin
+      description: |
+        Permet aux administrateurs de modifier toutes les informations d'un médecin validé ou en attente.
+        
+        **🔧 Fonctionnalités :**
+        - ✅ **Mise à jour partielle** : Seuls les champs fournis sont modifiés
+        - 🔒 **Validation stricte** : Vérification d'unicité (email, téléphone, numéro d'ordre)
+        - 🛡️ **Sécurité** : Hash automatique des mots de passe (bcrypt niveau 12)
+        - 📊 **Traçabilité complète** : Historique des modifications par admin
+        
+        **📋 Données modifiables :**
+        
+        **Informations utilisateur :**
+        - Nom, prénom, email, téléphone
+        - Mot de passe (hashage automatique)
+        
+        **Informations médecin :**
+        - Numéro d'ordre, spécialités, biographie
+        - Années d'expérience, langues parlées
+        - Tarifs et types de consultation acceptés
+        - Association à une clinique
+        
+        **🔄 Workflow :**
+        1. Admin identifie le médecin à modifier
+        2. Fournit les champs à mettre à jour (mise à jour partielle)
+        3. Système valide l'unicité des données critiques
+        4. Transaction atomique : User + Medecin mis à jour ensemble
+        5. Réponse complète avec données actualisées
+        
+        **⚠️ Contraintes de sécurité :**
+        - Vérification d'unicité pour email, téléphone, numéro d'ordre
+        - Validation des spécialités selon la liste officielle
+        - Validation de l'existence de la clinique si spécifiée
+        - Tous les changements sont tracés (admin, date, IP)
+        
+        **User Stories :** Admin-US4, US5 (Gestion profils médecins)
+
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: medecinId
+          in: path
+          description: ID unique du médecin à modifier
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+      requestBody:
+        required: true
+        description: |
+          **Mise à jour partielle** : Seuls les champs fournis seront modifiés.
+          
+          ⚠️ **IMPORTANT** : Tous les champs sont optionnels, permettant une mise à jour ciblée.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                # === DONNÉES UTILISATEUR ===
+                nom:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  pattern: "^[A-Za-zÀ-ÿ\\-'\\s]+$"
+                  description: |
+                    Nom de famille du médecin
+                    
+                    **Contraintes :**
+                    - 2-100 caractères
+                    - Lettres, espaces, traits d'union et apostrophes uniquement
+                  example: "Diabaté"
+                
+                prenom:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  pattern: "^[A-Za-zÀ-ÿ\\-'\\s]+$"
+                  description: |
+                    Prénom du médecin
+                    
+                    **Contraintes :**
+                    - 2-100 caractères
+                    - Lettres, espaces, traits d'union et apostrophes uniquement
+                  example: "Dr Fatou"
+                
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                  description: |
+                    Adresse email professionnelle
+                    
+                    **⚠️ Unicité requise** : Vérifié automatiquement
+                    **Format** : adresse email valide
+                  example: "dr.fatou.diabate@clinique-abidjan.ci"
+                
+                telephone:
+                  type: string
+                  pattern: '^(\+225|0)[0-9]{8,10}$'
+                  description: |
+                    Numéro de téléphone ivoirien
+                    
+                    **⚠️ Unicité requise** : Vérifié automatiquement
+                    **Formats acceptés :**
+                    - `+225XXXXXXXX` (international)
+                    - `0XXXXXXXXX` (national)
+                  example: "+22507080910"
+                
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 100
+                  description: |
+                    Nouveau mot de passe (si modification souhaitée)
+                    
+                    **Sécurité :**
+                    - Hashage automatique bcrypt niveau 12
+                    - Minimum 8 caractères
+                    - Recommandé : majuscules, chiffres, caractères spéciaux
+                  example: "NouveauMotDePasse2024!"
+                
+                # === DONNÉES MÉDECIN ===
+                numeroOrdre:
+                  type: string
+                  minLength: 5
+                  maxLength: 50
+                  pattern: '^[A-Z0-9]+$'
+                  description: |
+                    Numéro d'inscription à l'Ordre des Médecins
+                    
+                    **⚠️ Unicité requise** : Vérifié automatiquement
+                    **Format** : Lettres majuscules et chiffres uniquement
+                  example: "CI123456789"
+                
+                specialites:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - MEDECINE_GENERALE
+                      - CARDIOLOGIE
+                      - DERMATOLOGIE
+                      - PEDIATRIE
+                      - GYNECOLOGIE
+                      - NEUROLOGIE
+                      - PSYCHIATRIE
+                      - CHIRURGIE_GENERALE
+                      - OPHTALMOLOGIE
+                      - ORL
+                      - RADIOLOGIE
+                      - ANESTHESIE
+                      - URGENCES
+                      - MEDECINE_INTERNE
+                      - ENDOCRINOLOGIE
+                      - RHUMATOLOGIE
+                      - GASTROENTEROLOGIE
+                      - PNEUMOLOGIE
+                      - NEPHROLOGIE
+                      - ONCOLOGIE
+                  minItems: 1
+                  uniqueItems: true
+                  description: |
+                    Liste des spécialités médicales officielles
+                    
+                    **Contraintes :**
+                    - Au moins une spécialité requise
+                    - Pas de doublons
+                    - Uniquement les spécialités de la liste officielle
+                  example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+                
+                bio:
+                  type: string
+                  maxLength: 1000
+                  description: |
+                    Biographie professionnelle du médecin
+                    
+                    **Usage :** Visible par les patients lors de la recherche
+                    **Limite :** 1000 caractères maximum
+                  example: "Cardiologue interventionnelle avec 15 ans d'expérience. Spécialisée en chirurgie cardiaque minimalement invasive et cardiologie préventive."
+                
+                experienceAnnees:
+                  type: integer
+                  minimum: 0
+                  maximum: 60
+                  description: |
+                    Nombre d'années d'expérience professionnelle
+                    
+                    **Plage valide :** 0-60 ans
+                  example: 15
+                
+                languesParlees:
+                  type: array
+                  items:
+                    type: string
+                    enum: [FRANCAIS, ANGLAIS, BAOULÉ, DIOULA, BÉTÉ, YACOUBA, SÉNOUFO, AUTRES]
+                  uniqueItems: true
+                  description: |
+                    Langues parlées par le médecin
+                    
+                    **Usage :** Facilite la communication avec les patients
+                    **Par défaut :** FRANCAIS inclus automatiquement
+                  example: ["FRANCAIS", "DIOULA", "ANGLAIS"]
+                
+                tarifConsultationBase:
+                  type: number
+                  multipleOf: 0.01
+                  minimum: 0
+                  maximum: 1000000
+                  description: |
+                    Tarif de base pour une consultation (en FCFA)
+                    
+                    **Format :** Décimal avec 2 décimales max
+                    **Usage :** Affiché aux patients lors de la réservation
+                  example: 25000.00
+                
+                # === TYPES DE CONSULTATION ===
+                accepteDomicile:
+                  type: boolean
+                  description: |
+                    Le médecin accepte-t-il les consultations à domicile ?
+                    
+                    **Impact :** Affiché dans les filtres de recherche patients
+                  example: true
+                
+                accepteTeleconsultation:
+                  type: boolean
+                  description: |
+                    Le médecin accepte-t-il les téléconsultations ?
+                    
+                    **Impact :** Option visible lors de la prise de rendez-vous
+                  example: true
+                
+                accepteclinique:
+                  type: boolean
+                  description: |
+                    Le médecin accepte-t-il les consultations en clinique ?
+                    
+                    **Par défaut :** true (la plupart des médecins)
+                  example: true
+                
+                cliniqueId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: |
+                    ID de la clinique principale d'exercice
+                    
+                    **⚠️ Validation :** Existence de la clinique vérifiée
+                    **Nullable :** Peut être null si exercice libéral uniquement
+                  example: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+
+            examples:
+              mise_a_jour_complete:
+                summary: Mise à jour complète d'un cardiologue
+                description: Exemple de modification de toutes les informations d'un médecin
+                value:
+                  nom: "Diabaté-Kouassi"
+                  prenom: "Dr Fatou Marie"
+                  email: "dr.fatou.diabate@nouveauclinic.ci"
+                  telephone: "+22507080911"
+                  numeroOrdre: "CI987654321"
+                  specialites: ["CARDIOLOGIE", "MEDECINE_INTERNE", "URGENCES"]
+                  bio: "Cardiologue interventionnelle avec 15 ans d'expérience. Experte en cardiologie pédiatrique et chirurgie cardiaque minimalement invasive. Diplômée de l'Université d'Abidjan et de l'Hôpital européen de Paris."
+                  experienceAnnees: 15
+                  languesParlees: ["FRANCAIS", "ANGLAIS", "DIOULA"]
+                  tarifConsultationBase: 35000.00
+                  accepteDomicile: true
+                  accepteTeleconsultation: true
+                  accepteclinique: true
+                  cliniqueId: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+              
+              mise_a_jour_partielle_info:
+                summary: Mise à jour partielle - Informations personnelles
+                description: Modification uniquement du nom, email et téléphone
+                value:
+                  nom: "Nouveau-Nom"
+                  email: "nouveau.email@clinique.ci"
+                  telephone: "+22501234567"
+              
+              mise_a_jour_partielle_medical:
+                summary: Mise à jour partielle - Informations médicales
+                description: Modification des spécialités et tarifs uniquement
+                value:
+                  specialites: ["PEDIATRIE", "MEDECINE_GENERALE"]
+                  tarifConsultationBase: 20000.00
+                  bio: "Pédiatre généraliste spécialisé dans le suivi de l'enfant et de l'adolescent."
+              
+              changement_password:
+                summary: Changement de mot de passe uniquement
+                description: Modification sécurisée du mot de passe
+                value:
+                  password: "NouveauMotDePasseSecurise2024!"
+              
+              association_clinique:
+                summary: Association à une nouvelle clinique
+                description: Changement de clinique principale d'exercice
+                value:
+                  cliniqueId: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                  accepteclinique: true
+                  tarifConsultationBase: 30000.00
+
+      responses:
+        '200':
+          description: Profil médecin mis à jour avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Profil médecin mis à jour avec succès"
+                  data:
+                    type: object
+                    properties:
+                      medecin:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                            example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                          user:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                                example: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+                              nom:
+                                type: string
+                                example: "Diabaté"
+                              prenom:
+                                type: string
+                                example: "Dr Fatou"
+                              email:
+                                type: string
+                                format: email
+                                example: "dr.fatou.diabate@clinique-abidjan.ci"
+                              telephone:
+                                type: string
+                                example: "+22507080910"
+                              role:
+                                type: string
+                                enum: [MEDECIN]
+                                example: "MEDECIN"
+                              statut:
+                                type: string
+                                enum: [ACTIF, SUSPENDU, DESACTIVE]
+                                example: "ACTIF"
+                          numeroOrdre:
+                            type: string
+                            example: "CI123456789"
+                          specialites:
+                            type: array
+                            items:
+                              type: string
+                            example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+                          statutValidation:
+                            type: string
+                            enum: [EN_ATTENTE, VALIDE, REJETE]
+                            example: "VALIDE"
+                          bio:
+                            type: string
+                            nullable: true
+                            example: "Cardiologue interventionnelle avec 15 ans d'expérience."
+                          experienceAnnees:
+                            type: integer
+                            nullable: true
+                            example: 15
+                          languesParlees:
+                            type: array
+                            items:
+                              type: string
+                            example: ["FRANCAIS", "DIOULA", "ANGLAIS"]
+                          tarifConsultationBase:
+                            type: number
+                            nullable: true
+                            example: 25000.00
+                          accepteDomicile:
+                            type: boolean
+                            example: true
+                          accepteTeleconsultation:
+                            type: boolean
+                            example: true
+                          accepteclinique:
+                            type: boolean
+                            example: true
+                          noteMoyenne:
+                            type: number
+                            format: float
+                            example: 4.7
+                          nombreEvaluations:
+                            type: integer
+                            example: 127
+                          clinique:
+                            type: object
+                            nullable: true
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                                example: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                              nom:
+                                type: string
+                                example: "Clinique Internationale d'Abidjan"
+                              ville:
+                                type: string
+                                example: "Abidjan"
+                      updateInfo:
+                        type: object
+                        description: Informations sur la mise à jour effectuée
+                        properties:
+                          fieldsUpdated:
+                            type: array
+                            items:
+                              type: string
+                            description: Liste des champs qui ont été modifiés
+                            example: ["user.email", "user.telephone", "medecin.specialites", "medecin.bio"]
+                          updatedBy:
+                            type: string
+                            description: Admin qui a effectué la modification
+                            example: "Admin Marie Kouassi"
+                          updatedAt:
+                            type: string
+                            format: date-time
+                            example: "2024-01-15T14:30:22.123Z"
+                          ip:
+                            type: string
+                            description: Adresse IP de l'admin
+                            example: "192.168.1.100"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T14:30:22.123Z"
+              examples:
+                profil_mis_a_jour:
+                  summary: Profil mis à jour avec succès
+                  value:
+                    success: true
+                    message: "Profil médecin mis à jour avec succès"
+                    data:
+                      medecin:
+                        id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        user:
+                          id: "b2c3d4e5-f6g7-8901-bcde-f12345678901"
+                          nom: "Diabaté"
+                          prenom: "Dr Fatou"
+                          email: "dr.fatou.diabate@clinique-abidjan.ci"
+                          telephone: "+22507080910"
+                          role: "MEDECIN"
+                          statut: "ACTIF"
+                        numeroOrdre: "CI123456789"
+                        specialites: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+                        statutValidation: "VALIDE"
+                        bio: "Cardiologue interventionnelle avec 15 ans d'expérience."
+                        experienceAnnees: 15
+                        languesParlees: ["FRANCAIS", "DIOULA", "ANGLAIS"]
+                        tarifConsultationBase: 25000.00
+                        accepteDomicile: true
+                        accepteTeleconsultation: true
+                        accepteclinique: true
+                        noteMoyenne: 4.7
+                        nombreEvaluations: 127
+                        clinique:
+                          id: "c3d4e5f6-g7h8-9012-cdef-123456789012"
+                          nom: "Clinique Internationale d'Abidjan"
+                          ville: "Abidjan"
+                      updateInfo:
+                        fieldsUpdated: ["user.email", "user.telephone", "medecin.specialites", "medecin.bio"]
+                        updatedBy: "Admin Marie Kouassi"
+                        updatedAt: "2024-01-15T14:30:22.123Z"
+                        ip: "192.168.1.100"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '400':
+          description: Requête invalide - Données malformées ou contraintes violées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validation_champs:
+                  summary: Erreurs de validation des champs
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "Paramètres de requête invalides"
+                    details:
+                      nom: "Le nom doit contenir entre 2 et 100 caractères"
+                      email: "Format d'email invalide"
+                      specialites: "Au moins une spécialité est requise"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                email_deja_utilise:
+                  summary: Email déjà utilisé par un autre utilisateur
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Adresse email déjà utilisée"
+                    details:
+                      code: "EMAIL_ALREADY_EXISTS"
+                      field: "email"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                telephone_deja_utilise:
+                  summary: Numéro de téléphone déjà utilisé
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Numéro de téléphone déjà utilisé"
+                    details:
+                      code: "PHONE_ALREADY_EXISTS"
+                      field: "telephone"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                numero_ordre_deja_utilise:
+                  summary: Numéro d'ordre déjà utilisé
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Numéro d'ordre déjà utilisé"
+                    details:
+                      code: "ORDRE_NUMBER_EXISTS"
+                      field: "numeroOrdre"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                specialites_invalides:
+                  summary: Spécialités non reconnues
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Spécialités non reconnues"
+                    details:
+                      code: "INVALID_SPECIALITES"
+                      message: "Les spécialités suivantes ne sont pas reconnues: INVALID_SPEC, UNKNOWN_SPEC"
+                      field: "specialites"
+                      specialitesAutorisees: ["MEDECINE_GENERALE", "CARDIOLOGIE", "PEDIATRIE"]
+                    timestamp: "2024-01-15T14:30:22.123Z"
+                
+                clinique_non_trouvee:
+                  summary: Clinique spécifiée non trouvée
+                  value:
+                    success: false
+                    error: "BAD_REQUEST"
+                    message: "Clinique non trouvée"
+                    details:
+                      code: "CLINIQUE_NOT_FOUND"
+                      field: "cliniqueId"
+                    timestamp: "2024-01-15T14:30:22.123Z"
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '403':
+          description: Accès refusé - Réservé aux administrateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "FORBIDDEN"
+                message: "Accès réservé aux administrateurs"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '404':
+          description: Médecin non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "NOT_FOUND"
+                message: "Médecin non trouvé"
+                details:
+                  code: "MEDECIN_NOT_FOUND"
+                  medecinId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                timestamp: "2024-01-15T14:30:22.123Z"
+
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ERROR_CODE"
+        message:
+          type: string
+          example: "Description de l'erreur"
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:30:22.123Z"
+
+  responses:
+    Unauthorized:
+      description: Non authentifié - Token manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "Token d'authentification requis"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+    ServerError:
+      description: Erreur interne du serveur
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "INTERNAL_SERVER_ERROR"
+            message: "Erreur interne lors de la mise à jour du profil médecin"
+            timestamp: "2024-01-15T14:30:22.123Z"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT d'administrateur obtenu lors de la connexion.
+        Format: `Authorization: Bearer <admin_token>`

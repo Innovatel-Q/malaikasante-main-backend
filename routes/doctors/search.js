@@ -3,9 +3,317 @@ const router = express.Router();
 const prisma = require('../../prisma/client');
 const ApiResponse = require('../../services/ApiResponse');
 const AuthMiddleware = require('../../middleware/authMiddleware');
+const BodyFilter = require('../../middleware/bodyFilterMiddleware');
 
 /**
- * GET /doctors/search - Recherche multicritères de médecins validés
+ * Calcule la distance entre deux points géographiques (formule Haversine)
+ */
+function calculerDistanceHaversine(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Rayon de la Terre en km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+/**
+ * POST /doctors/recommend - Recommandation intelligente de médecins
+ */
+router.post('/recommend',
+    AuthMiddleware.authenticate(),
+    BodyFilter.validate({
+        latitude: { type: 'number', required: true, min: -90, max: 90 },
+        longitude: { type: 'number', required: true, min: -180, max: 180 },
+        adresse: { type: 'string', required: false, maxLength: 500 },
+        specialite: { type: 'string', required: false, maxLength: 100 },
+        typeConsultation: { 
+            type: 'string', 
+            required: true, 
+            enum: ['DOMICILE', 'CLINIQUE', 'TELECONSULTATION'] 
+        },
+        budget: { type: 'number', required: false, min: 0, max: 1000000 }
+    }),
+    async (req, res) => {
+        try {
+            const { latitude, longitude, adresse, specialite, typeConsultation, budget } = req.body;
+
+            // Construction des filtres de base
+            const whereConditions = {
+                statutValidation: 'VALIDE',
+                user: { statut: 'ACTIF' }
+            };
+
+            // Filtres spécifiques par type de consultation
+            if (typeConsultation === 'DOMICILE') {
+                whereConditions.accepteDomicile = true;
+            } else if (typeConsultation === 'TELECONSULTATION') {
+                whereConditions.accepteTeleconsultation = true;
+            } else if (typeConsultation === 'CLINIQUE') {
+                whereConditions.accepteclinique = true;
+                whereConditions.clinique = {
+                    active: true,
+                    latitude: { not: null },
+                    longitude: { not: null }
+                };
+            }
+
+            // Filtre par spécialité si spécifiée
+            if (specialite) {
+                whereConditions.specialites = {
+                    path: '$',
+                    array_contains: specialite.toUpperCase()
+                };
+            }
+
+            // Récupération des médecins avec toutes les données nécessaires
+            const medecins = await prisma.medecin.findMany({
+                where: whereConditions,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            nom: true,
+                            prenom: true,
+                            email: true,
+                            telephone: true
+                        }
+                    },
+                    clinique: {
+                        select: {
+                            nom: true,
+                            adresse: true,
+                            ville: true,
+                            latitude: true,
+                            longitude: true
+                        }
+                    },
+                    rendezVous: {
+                        where: {
+                            statut: { in: ['CONFIRME', 'TERMINE'] },
+                            dateRendezVous: { gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) }
+                        },
+                        select: { id: true }
+                    },
+                    disponibilites: {
+                        where: {
+                            bloque: false,
+                            typeConsultation: typeConsultation,
+                            OR: [
+                                { recurrent: true },
+                                { dateSpecifique: { gte: new Date() } }
+                            ]
+                        },
+                        select: { id: true, jourSemaine: true, heureDebut: true, heureFin: true }
+                    }
+                }
+            });
+
+            // Récupération des évaluations pour chaque médecin
+            const medecinIds = medecins.map(m => m.id);
+            const evaluations = await prisma.evaluation.findMany({
+                where: {
+                    evalueUserId: { in: medecins.map(m => m.userId) },
+                    typeEvaluation: 'PATIENT_EVALUE_MEDECIN'
+                },
+                select: {
+                    evalueUserId: true,
+                    note: true
+                }
+            });
+
+            // Calcul des scores et recommandations
+            const recommendations = medecins.map(medecin => {
+                // Calcul de la distance
+                let distance = null;
+                let distanceScore = 0;
+                
+                if (typeConsultation === 'CLINIQUE' && medecin.clinique?.latitude && medecin.clinique?.longitude) {
+                    distance = calculerDistanceHaversine(
+                        latitude, longitude,
+                        parseFloat(medecin.clinique.latitude),
+                        parseFloat(medecin.clinique.longitude)
+                    );
+                    // Score distance (plus proche = meilleur) - max 10 points
+                    distanceScore = Math.max(0, 10 - (distance / 2));
+                } else if (typeConsultation === 'TELECONSULTATION') {
+                    distanceScore = 10; // Distance n'importe pas pour téléconsultation
+                } else if (typeConsultation === 'DOMICILE') {
+                    // Pour domicile, on considère une distance moyenne de 5km
+                    distance = 5;
+                    distanceScore = 8;
+                }
+
+                // Calcul de la note moyenne
+                const medecinEvaluations = evaluations.filter(e => e.evalueUserId === medecin.userId);
+                const noteMoyenne = medecinEvaluations.length > 0
+                    ? medecinEvaluations.reduce((sum, e) => sum + e.note, 0) / medecinEvaluations.length
+                    : 0;
+                const noteScore = (noteMoyenne / 5) * 10; // Conversion sur 10
+
+                // Score d'expérience
+                const experienceScore = Math.min(10, (medecin.experienceAnnees || 0) / 2);
+
+                // Score de disponibilité
+                const disponibiliteScore = medecin.disponibilites.length > 0 ? 10 : 0;
+
+                // Score budget (si spécifié)
+                let budgetScore = 10;
+                const tarif = typeConsultation === 'DOMICILE' ? medecin.tarifConsultationBase * 1.5 :
+                             typeConsultation === 'TELECONSULTATION' ? medecin.tarifConsultationBase * 0.8 :
+                             medecin.tarifConsultationBase;
+                
+                if (budget && tarif) {
+                    if (tarif <= budget) {
+                        budgetScore = 10;
+                    } else if (tarif <= budget * 1.2) {
+                        budgetScore = 7;
+                    } else {
+                        budgetScore = 3;
+                    }
+                }
+
+                // Score spécialité
+                let specialiteScore = 5; // Score neutre
+                if (specialite && medecin.specialites) {
+                    const specialitesMedecin = Array.isArray(medecin.specialites) 
+                        ? medecin.specialites 
+                        : JSON.parse(medecin.specialites || '[]');
+                    
+                    if (specialitesMedecin.includes(specialite.toUpperCase())) {
+                        specialiteScore = 10;
+                    }
+                }
+
+                // Calcul du score final pondéré
+                const scoreTotal = (
+                    distanceScore * 0.25 +      // 25% pour la distance
+                    noteScore * 0.25 +          // 25% pour la note
+                    experienceScore * 0.20 +    // 20% pour l'expérience
+                    disponibiliteScore * 0.15 + // 15% pour la disponibilité
+                    budgetScore * 0.10 +        // 10% pour le budget
+                    specialiteScore * 0.05      // 5% pour la spécialité
+                );
+
+                // Calcul du tarif estimé
+                const tarifEstime = tarif || medecin.tarifConsultationBase || 0;
+
+                return {
+                    medecin: {
+                        id: medecin.id,
+                        user: medecin.user,
+                        specialites: Array.isArray(medecin.specialites) 
+                            ? medecin.specialites 
+                            : JSON.parse(medecin.specialites || '[]'),
+                        experienceAnnees: medecin.experienceAnnees,
+                        noteMoyenne: Math.round(noteMoyenne * 10) / 10,
+                        nombreEvaluations: medecinEvaluations.length,
+                        photoProfile: medecin.photoProfile ? (() => {
+                            try {
+                                const photoData = typeof medecin.photoProfile === 'string' 
+                                    ? JSON.parse(medecin.photoProfile) 
+                                    : medecin.photoProfile;
+                                return {
+                                    ...photoData,
+                                    url: photoData.nom_fichier 
+                                        ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/profil/${photoData.nom_fichier}`
+                                        : null
+                                };
+                            } catch (e) {
+                                return null;
+                            }
+                        })() : null,
+                        bio: medecin.bio,
+                        languesParlees: medecin.languesParlees ? 
+                            (Array.isArray(medecin.languesParlees) ? medecin.languesParlees : JSON.parse(medecin.languesParlees)) : [],
+                        clinique: typeConsultation === 'CLINIQUE' ? medecin.clinique : null
+                    },
+                    score: Math.round(scoreTotal * 10) / 10,
+                    distance: distance ? `${Math.round(distance * 10) / 10} km` : null,
+                    tarifEstime,
+                    disponible: medecin.disponibilites.length > 0,
+                    prochainCreneauEstime: medecin.disponibilites.length > 0 ? "Aujourd'hui ou demain" : "Non disponible",
+                    scoreDetails: {
+                        distance: Math.round(distanceScore * 10) / 10,
+                        note: Math.round(noteScore * 10) / 10,
+                        experience: Math.round(experienceScore * 10) / 10,
+                        disponibilite: disponibiliteScore,
+                        budget: budgetScore,
+                        specialite: specialiteScore
+                    }
+                };
+            });
+
+            // Tri par score décroissant et sélection du top 3
+            const topRecommendations = recommendations
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3);
+
+            // Détermination des raisons de mise en avant pour le premier
+            let raisonMiseEnAvant = "Meilleur score global";
+            if (topRecommendations[0]) {
+                const premier = topRecommendations[0];
+                const raisons = [];
+
+                if (premier.medecin.noteMoyenne >= 4.5) {
+                    raisons.push("Excellentes évaluations patients");
+                }
+                if (premier.distance && parseFloat(premier.distance) < 3) {
+                    raisons.push("Très proche de votre position");
+                }
+                if (premier.medecin.experienceAnnees >= 10) {
+                    raisons.push("Grande expérience");
+                }
+                if (budget && premier.tarifEstime <= budget * 0.8) {
+                    raisons.push("Tarif très abordable");
+                }
+                if (specialite && premier.medecin.specialites.includes(specialite.toUpperCase())) {
+                    raisons.push("Spécialiste exact recherché");
+                }
+
+                if (raisons.length > 0) {
+                    raisonMiseEnAvant = raisons.join(" • ");
+                }
+            }
+
+            // Enrichissement avec statut highlighted
+            const recommendationsFinales = topRecommendations.map((rec, index) => ({
+                ...rec,
+                highlighted: index === 0,
+                raisonMiseEnAvant: index === 0 ? raisonMiseEnAvant : null
+            }));
+
+            return ApiResponse.success(res, 'Recommandations générées avec succès', {
+                recommendations: recommendationsFinales,
+                criteres: {
+                    position: { latitude, longitude },
+                    adresse: adresse || null,
+                    specialite: specialite || null,
+                    typeConsultation,
+                    budget: budget || null
+                },
+                statistiques: {
+                    nombreMedecinsAnalyses: medecins.length,
+                    scoreMoyenTop3: recommendationsFinales.length > 0 
+                        ? Math.round((recommendationsFinales.reduce((sum, r) => sum + r.score, 0) / recommendationsFinales.length) * 10) / 10
+                        : 0,
+                    tarifMoyenEstime: recommendationsFinales.length > 0
+                        ? Math.round((recommendationsFinales.reduce((sum, r) => sum + r.tarifEstime, 0) / recommendationsFinales.length))
+                        : 0
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ Erreur recommandation médecins:', error);
+            return ApiResponse.serverError(res, 'Erreur lors de la génération des recommandations');
+        }
+    }
+);
+
+/**
+ * GET /doctors/search - Recherche multicritères de médecins validés (ancienne version)
  */
 router.get('/',
     AuthMiddleware.authenticate(),
@@ -136,7 +444,7 @@ router.get('/',
                 // Calcul de la note moyenne
                 const evaluations = medecin.evaluations || [];
                 const noteMoyenne = evaluations.length > 0
-                    ? evaluations.reduce((sum, eval) => sum + eval.note, 0) / evaluations.length
+                    ? evaluations.reduce((sum, evaluation) => sum + evaluation.note, 0) / evaluations.length
                     : null;
 
                 // Filtrage par note si spécifié
@@ -185,8 +493,38 @@ router.get('/',
                     // Certifications
                     certifie: medecin.diplomes.some(d => d.certification === true),
                     // Photos/images
-                    photoProfile: medecin.photoProfile,
-                    photoCabinet: medecin.photoCabinet
+                    photoProfile: medecin.photoProfile ? (() => {
+                        try {
+                            const photoData = typeof medecin.photoProfile === 'string' 
+                                ? JSON.parse(medecin.photoProfile) 
+                                : medecin.photoProfile;
+                            return {
+                                ...photoData,
+                                url: photoData.nom_fichier 
+                                    ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/profil/${photoData.nom_fichier}`
+                                    : null
+                            };
+                        } catch (e) {
+                            console.warn('Erreur parsing photoProfile:', e);
+                            return null;
+                        }
+                    })() : null,
+                    photoCabinet: medecin.photoCabinet ? (() => {
+                        try {
+                            const photoData = typeof medecin.photoCabinet === 'string' 
+                                ? JSON.parse(medecin.photoCabinet) 
+                                : medecin.photoCabinet;
+                            return {
+                                ...photoData,
+                                url: photoData.nom_fichier 
+                                    ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/cabinet/${photoData.nom_fichier}`
+                                    : null
+                            };
+                        } catch (e) {
+                            console.warn('Erreur parsing photoCabinet:', e);
+                            return null;
+                        }
+                    })() : null
                 };
             }).filter(Boolean); // Supprime les médecins filtrés par note
 

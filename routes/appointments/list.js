@@ -244,13 +244,13 @@ router.get('/',
                 // Évaluations
                 rdvEnrichi.evaluation = {
                     aEvalue: rdv.evaluations.length > 0,
-                    details: rdv.evaluations.map(eval => ({
+                    details: rdv.evaluations.map(evaluation => ({
                         id: eval.id,
-                        note: eval.note,
-                        commentaire: eval.commentaire,
-                        recommande: eval.recommande,
+                        note: evaluation.note,
+                        commentaire: evaluation.commentaire,
+                        recommande: evaluation.recommande,
                         typeEvaluation: eval.typeEvaluation,
-                        date: eval.createdAt
+                        date: evaluation.createdAt
                     }))
                 };
 
