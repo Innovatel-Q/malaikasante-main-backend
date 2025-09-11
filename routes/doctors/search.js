@@ -25,16 +25,19 @@ function calculerDistanceHaversine(lat1, lon1, lat2, lon2) {
 router.post('/recommend',
     AuthMiddleware.authenticate(),
     BodyFilter.validate({
-        latitude: { type: 'number', required: true, min: -90, max: 90 },
-        longitude: { type: 'number', required: true, min: -180, max: 180 },
-        adresse: { type: 'string', required: false, maxLength: 500 },
-        specialite: { type: 'string', required: false, maxLength: 100 },
-        typeConsultation: { 
-            type: 'string', 
-            required: true, 
-            enum: ['DOMICILE', 'CLINIQUE', 'TELECONSULTATION'] 
+        fields: {
+            latitude: { type: 'number', min: -90, max: 90 },
+            longitude: { type: 'number', min: -180, max: 180 },
+            adresse: { type: 'string', maxLength: 500 },
+            specialite: { type: 'string', maxLength: 100 },
+            typeConsultation: { 
+                type: 'string', 
+                enum: ['DOMICILE', 'CLINIQUE', 'TELECONSULTATION'] 
+            },
+            budget: { type: 'number', min: 0, max: 1000000 }
         },
-        budget: { type: 'number', required: false, min: 0, max: 1000000 }
+        required: ['latitude', 'longitude', 'typeConsultation'],
+        strict: true
     }),
     async (req, res) => {
         try {
@@ -201,48 +204,32 @@ router.post('/recommend',
                 const tarifEstime = tarif || medecin.tarifConsultationBase || 0;
 
                 return {
-                    medecin: {
-                        id: medecin.id,
-                        user: medecin.user,
-                        specialites: Array.isArray(medecin.specialites) 
-                            ? medecin.specialites 
-                            : JSON.parse(medecin.specialites || '[]'),
-                        experienceAnnees: medecin.experienceAnnees,
-                        noteMoyenne: Math.round(noteMoyenne * 10) / 10,
-                        nombreEvaluations: medecinEvaluations.length,
-                        photoProfile: medecin.photoProfile ? (() => {
-                            try {
-                                const photoData = typeof medecin.photoProfile === 'string' 
-                                    ? JSON.parse(medecin.photoProfile) 
-                                    : medecin.photoProfile;
-                                return {
-                                    ...photoData,
-                                    url: photoData.nom_fichier 
-                                        ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/profil/${photoData.nom_fichier}`
-                                        : null
-                                };
-                            } catch (e) {
-                                return null;
-                            }
-                        })() : null,
-                        bio: medecin.bio,
-                        languesParlees: medecin.languesParlees ? 
-                            (Array.isArray(medecin.languesParlees) ? medecin.languesParlees : JSON.parse(medecin.languesParlees)) : [],
-                        clinique: typeConsultation === 'CLINIQUE' ? medecin.clinique : null
-                    },
+                    id: medecin.id,
+                    nom: medecin.user.nom,
+                    prenom: medecin.user.prenom,
+                    specialites: Array.isArray(medecin.specialites) 
+                        ? medecin.specialites 
+                        : JSON.parse(medecin.specialites || '[]'),
+                    experienceAnnees: medecin.experienceAnnees,
+                    noteMoyenne: Math.round(noteMoyenne * 10) / 10,
+                    nombreEvaluations: medecinEvaluations.length,
+                    photoProfile: medecin.photoProfile ? (() => {
+                        try {
+                            const photoData = typeof medecin.photoProfile === 'string' 
+                                ? JSON.parse(medecin.photoProfile) 
+                                : medecin.photoProfile;
+                            return photoData.nom_fichier 
+                                ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/profil/${photoData.nom_fichier}`
+                                : null;
+                        } catch (e) {
+                            return null;
+                        }
+                    })() : null,
+                    bio: medecin.bio,
                     score: Math.round(scoreTotal * 10) / 10,
-                    distance: distance ? `${Math.round(distance * 10) / 10} km` : null,
                     tarifEstime,
                     disponible: medecin.disponibilites.length > 0,
-                    prochainCreneauEstime: medecin.disponibilites.length > 0 ? "Aujourd'hui ou demain" : "Non disponible",
-                    scoreDetails: {
-                        distance: Math.round(distanceScore * 10) / 10,
-                        note: Math.round(noteScore * 10) / 10,
-                        experience: Math.round(experienceScore * 10) / 10,
-                        disponibilite: disponibiliteScore,
-                        budget: budgetScore,
-                        specialite: specialiteScore
-                    }
+                    clinique: typeConsultation === 'CLINIQUE' ? medecin.clinique : null
                 };
             });
 
@@ -251,58 +238,51 @@ router.post('/recommend',
                 .sort((a, b) => b.score - a.score)
                 .slice(0, 3);
 
-            // Détermination des raisons de mise en avant pour le premier
-            let raisonMiseEnAvant = "Meilleur score global";
-            if (topRecommendations[0]) {
-                const premier = topRecommendations[0];
+            // Détermination des raisons de mise en avant pour chaque recommandation
+            const recommendationsFinales = topRecommendations.map((rec, index) => {
                 const raisons = [];
 
-                if (premier.medecin.noteMoyenne >= 4.5) {
+                // Critères spécifiques pour chaque médecin
+                if (rec.noteMoyenne >= 4.5) {
                     raisons.push("Excellentes évaluations patients");
                 }
-                if (premier.distance && parseFloat(premier.distance) < 3) {
-                    raisons.push("Très proche de votre position");
-                }
-                if (premier.medecin.experienceAnnees >= 10) {
+                if (rec.experienceAnnees >= 10) {
                     raisons.push("Grande expérience");
                 }
-                if (budget && premier.tarifEstime <= budget * 0.8) {
+                if (budget && rec.tarifEstime <= budget * 0.8) {
                     raisons.push("Tarif très abordable");
                 }
-                if (specialite && premier.medecin.specialites.includes(specialite.toUpperCase())) {
+                if (specialite && rec.specialites.includes(specialite.toUpperCase())) {
                     raisons.push("Spécialiste exact recherché");
                 }
+                if (rec.disponible) {
+                    raisons.push("Disponible rapidement");
+                }
 
+                // Raisons par position si pas de critères spécifiques
+                let raisonMiseEnAvant = "Médecin qualifié";
                 if (raisons.length > 0) {
                     raisonMiseEnAvant = raisons.join(" • ");
+                } else {
+                    // Raisons de fallback selon la position
+                    if (index === 0) {
+                        raisonMiseEnAvant = "Meilleur score global";
+                    } else if (index === 1) {
+                        raisonMiseEnAvant = "Excellent choix alternatif";
+                    } else if (index === 2) {
+                        raisonMiseEnAvant = "Option complémentaire recommandée";
+                    }
                 }
-            }
 
-            // Enrichissement avec statut highlighted
-            const recommendationsFinales = topRecommendations.map((rec, index) => ({
-                ...rec,
-                highlighted: index === 0,
-                raisonMiseEnAvant: index === 0 ? raisonMiseEnAvant : null
-            }));
+                return {
+                    ...rec,
+                    highlighted: index === 0,
+                    raisonMiseEnAvant
+                };
+            });
 
             return ApiResponse.success(res, 'Recommandations générées avec succès', {
-                recommendations: recommendationsFinales,
-                criteres: {
-                    position: { latitude, longitude },
-                    adresse: adresse || null,
-                    specialite: specialite || null,
-                    typeConsultation,
-                    budget: budget || null
-                },
-                statistiques: {
-                    nombreMedecinsAnalyses: medecins.length,
-                    scoreMoyenTop3: recommendationsFinales.length > 0 
-                        ? Math.round((recommendationsFinales.reduce((sum, r) => sum + r.score, 0) / recommendationsFinales.length) * 10) / 10
-                        : 0,
-                    tarifMoyenEstime: recommendationsFinales.length > 0
-                        ? Math.round((recommendationsFinales.reduce((sum, r) => sum + r.tarifEstime, 0) / recommendationsFinales.length))
-                        : 0
-                }
+                recommendations: recommendationsFinales
             });
 
         } catch (error) {
@@ -315,7 +295,7 @@ router.post('/recommend',
 /**
  * GET /doctors/search - Recherche multicritères de médecins validés (ancienne version)
  */
-router.get('/',
+router.get('/search',
     AuthMiddleware.authenticate(),
     async (req, res) => {
         try {

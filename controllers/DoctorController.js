@@ -7,7 +7,7 @@ const detailsRoute = require('../routes/doctors/details');
 const availableSlotsRoute = require('../routes/doctors/available-slots');
 
 // Organisation modulaire des routes médecins
-router.use('/search', searchRoute);
+router.use('/', searchRoute);
 router.use('/:id/available-slots', availableSlotsRoute);
 router.use('/:id/details', detailsRoute);
 

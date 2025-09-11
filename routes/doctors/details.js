@@ -7,22 +7,25 @@ const AuthMiddleware = require('../../middleware/authMiddleware');
 /**
  * GET /doctors/:id/details - Profil détaillé d'un médecin
  */
-router.get('/:id',
+router.get('/',
     AuthMiddleware.authenticate(),
     AuthMiddleware.authorize(['PATIENT']),
     async (req, res) => {
         try {
             const medecinId = req.params.id;
+            
+            console.log('🔍 Route details - ID reçu:', medecinId);
+            console.log('🔍 Route details - Params complets:', req.params);
+            
+            if (!medecinId) {
+                return ApiResponse.badRequest(res, 'ID du médecin requis');
+            }
 
             // Vérification de l'existence du médecin
             const medecin = await prisma.medecin.findUnique({
                 where: {
                     id: medecinId,
-                    statutValidation: 'VALIDE',
-                    statut: 'ACTIF',
-                    user: {
-                        statut: 'ACTIF'
-                    }
+                    statutValidation: 'VALIDE'
                 },
                 include: {
                     user: {
@@ -32,76 +35,19 @@ router.get('/:id',
                             prenom: true,
                             email: true,
                             telephone: true,
-                            createdAt: true
-                        }
-                    },
-                    diplomes: {
-                        select: {
-                            institution: true,
-                            diplome: true,
-                            specialite: true,
-                            anneeObtention: true,
-                            pays: true,
-                            documentPath: true,
-                            statut: true
-                        },
-                        where: {
-                            statut: 'VALIDE'
-                        },
-                        orderBy: {
-                            anneeObtention: 'desc'
-                        }
-                    },
-                    certifications: {
-                        select: {
-                            nom: true,
-                            organisme: true,
-                            dateObtention: true,
-                            dateExpiration: true,
-                            documentPath: true,
-                            statut: true
-                        },
-                        where: {
-                            statut: 'VALIDE',
-                            OR: [
-                                { dateExpiration: null },
-                                { dateExpiration: { gt: new Date() } }
-                            ]
-                        },
-                        orderBy: {
-                            dateObtention: 'desc'
-                        }
-                    },
-                    specialites: {
-                        select: {
-                            nom: true,
-                            certification: true,
-                            experienceAnnees: true
-                        }
-                    },
-                    evaluations: {
-                        where: {
-                            typeEvaluation: 'PATIENT_EVALUE_MEDECIN'
-                        },
-                        select: {
-                            note: true,
-                            commentaire: true,
-                            recommande: true,
                             createdAt: true,
-                            patient: {
-                                select: {
-                                    user: {
-                                        select: {
-                                            prenom: true
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        orderBy: {
-                            createdAt: 'desc'
-                        },
-                        take: 10 // Dernières 10 évaluations
+                            statut: true
+                        }
+                    },
+                    clinique: {
+                        select: {
+                            nom: true,
+                            adresse: true,
+                            ville: true,
+                            telephone: true,
+                            latitude: true,
+                            longitude: true
+                        }
                     },
                     rendezVous: {
                         where: {
@@ -116,16 +62,17 @@ router.get('/:id',
                             createdAt: true
                         }
                     },
-                    horairesConsultation: {
+                    disponibilites: {
+                        where: {
+                            bloque: false
+                        },
                         select: {
                             jourSemaine: true,
                             heureDebut: true,
                             heureFin: true,
                             typeConsultation: true,
-                            actif: true
-                        },
-                        where: {
-                            actif: true
+                            recurrent: true,
+                            dateSpecifique: true
                         },
                         orderBy: [
                             { jourSemaine: 'asc' },
@@ -135,12 +82,34 @@ router.get('/:id',
                 }
             });
 
-            if (!medecin) {
+            if (!medecin || medecin.user.statut !== 'ACTIF') {
                 return ApiResponse.notFound(res, 'Médecin non trouvé ou non disponible');
             }
 
-            // Calcul des statistiques
-            const evaluations = medecin.evaluations || [];
+            // Récupération des évaluations séparément
+            const evaluations = await prisma.evaluation.findMany({
+                where: {
+                    evalueUserId: medecin.userId,
+                    typeEvaluation: 'PATIENT_EVALUE_MEDECIN',
+                    visible: true
+                },
+                select: {
+                    note: true,
+                    commentaire: true,
+                    dateEvaluation: true,
+                    evaluateur: {
+                        select: {
+                            prenom: true
+                        }
+                    }
+                },
+                orderBy: {
+                    dateEvaluation: 'desc'
+                },
+                take: 10
+            });
+
+            // Calcul des statistiques d'évaluation
             const noteMoyenne = evaluations.length > 0
                 ? evaluations.reduce((sum, evaluation) => sum + evaluation.note, 0) / evaluations.length
                 : null;
@@ -152,16 +121,6 @@ router.get('/:id',
                 2: evaluations.filter(e => e.note === 2).length,
                 1: evaluations.filter(e => e.note === 1).length
             };
-
-            const nombreRecommandations = evaluations.filter(e => e.recommande === true).length;
-            const tauxRecommandation = evaluations.length > 0
-                ? Math.round((nombreRecommandations / evaluations.length) * 100)
-                : null;
-
-            // Calcul de l'expérience
-            const experienceAnnees = medecin.diplomes.length > 0
-                ? new Date().getFullYear() - Math.min(...medecin.diplomes.map(d => d.anneeObtention))
-                : null;
 
             const inscriptionAnnees = Math.floor((new Date() - new Date(medecin.user.createdAt)) / (1000 * 60 * 60 * 24 * 365.25));
 
@@ -177,23 +136,39 @@ router.get('/:id',
             const evaluationsPubliques = evaluations.map(evaluation => ({
                 note: evaluation.note,
                 commentaire: evaluation.commentaire,
-                recommande: evaluation.recommande,
-                date: evaluation.createdAt,
-                patientPrenom: evaluation.patient?.user?.prenom ? `${evaluation.patient.user.prenom.charAt(0)}***` : 'Anonyme'
+                date: evaluation.dateEvaluation,
+                patientPrenom: evaluation.evaluateur?.prenom ? `${evaluation.evaluateur.prenom.charAt(0)}***` : 'Anonyme'
             }));
 
-            // Organisation des horaires par jour
+            // Organisation des disponibilités par jour
             const horairesParsemaine = {};
             const joursSemaine = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'];
             joursSemaine.forEach(jour => {
-                horairesParsemaine[jour] = medecin.horairesConsultation
-                    .filter(h => h.jourSemaine === jour)
-                    .map(h => ({
-                        heureDebut: h.heureDebut,
-                        heureFin: h.heureFin,
-                        typeConsultation: h.typeConsultation
+                horairesParsemaine[jour] = medecin.disponibilites
+                    .filter(d => d.jourSemaine === jour && d.recurrent)
+                    .map(d => ({
+                        heureDebut: d.heureDebut,
+                        heureFin: d.heureFin,
+                        typeConsultation: d.typeConsultation
                     }));
             });
+
+            // Parse des données JSON
+            const specialites = medecin.specialites ? 
+                (Array.isArray(medecin.specialites) ? medecin.specialites : JSON.parse(medecin.specialites || '[]'))
+                : [];
+            
+            const diplomes = medecin.diplomes ? 
+                (Array.isArray(medecin.diplomes) ? medecin.diplomes : JSON.parse(medecin.diplomes || '[]'))
+                : [];
+            
+            const certifications = medecin.certifications ? 
+                (Array.isArray(medecin.certifications) ? medecin.certifications : JSON.parse(medecin.certifications || '[]'))
+                : [];
+
+            const languesParlees = medecin.languesParlees ? 
+                (Array.isArray(medecin.languesParlees) ? medecin.languesParlees : JSON.parse(medecin.languesParlees || '[]'))
+                : [];
 
             // Réponse complète
             const profilComplet = {
@@ -206,51 +181,31 @@ router.get('/:id',
                 },
                 informationsProfessionnelles: {
                     numeroOrdre: medecin.numeroOrdre,
-                    specialitePrincipale: medecin.specialitePrincipale,
-                    specialitesSecondaires: medecin.specialites.map(s => ({
-                        nom: s.nom,
-                        certifie: s.certification,
-                        experienceAnnees: s.experienceAnnees
-                    })),
-                    biographie: medecin.biographie,
-                    experienceAnnees,
+                    specialites: specialites,
+                    bio: medecin.bio,
+                    experienceAnnees: medecin.experienceAnnees,
                     inscriptionPlateforme: inscriptionAnnees,
-                    languesParlees: medecin.languesParlees ? medecin.languesParlees.split(',').map(l => l.trim()) : []
+                    languesParlees: languesParlees,
+                    noteMoyenne: parseFloat(medecin.noteMoyenne) || 0,
+                    nombreEvaluations: medecin.nombreEvaluations
                 },
                 formation: {
-                    diplomes: medecin.diplomes.map(d => ({
-                        institution: d.institution,
-                        diplome: d.diplome,
-                        specialite: d.specialite,
-                        anneeObtention: d.anneeObtention,
-                        pays: d.pays
-                    })),
-                    certifications: medecin.certifications.map(c => ({
-                        nom: c.nom,
-                        organisme: c.organisme,
-                        dateObtention: c.dateObtention,
-                        dateExpiration: c.dateExpiration
-                    }))
+                    diplomes: diplomes,
+                    certifications: certifications
                 },
                 consultations: {
                     clinique: {
-                        disponible: true,
-                        tarif: medecin.tarifConsultationClinique,
-                        adresse: medecin.adresseConsultation,
-                        ville: medecin.villeConsultation,
-                        codePostal: medecin.codePostalConsultation,
-                        informationsAcces: medecin.informationsAcces
+                        disponible: medecin.accepteclinique,
+                        tarif: medecin.tarifConsultationBase,
+                        clinique: medecin.clinique
                     },
                     domicile: {
-                        disponible: medecin.consultationDomicile,
-                        tarif: medecin.tarifConsultationDomicile,
-                        rayonKm: medecin.rayonDeplacementKm,
-                        fraisDeplacementParKm: medecin.fraisDeplacementParKm
+                        disponible: medecin.accepteDomicile,
+                        tarif: medecin.tarifConsultationBase ? medecin.tarifConsultationBase * 1.5 : null
                     },
                     teleconsultation: {
-                        disponible: medecin.teleconsultation,
-                        tarif: medecin.tarifTeleconsultation,
-                        plateformesUtilisees: medecin.plateformesUtilisees ? medecin.plateformesUtilisees.split(',').map(p => p.trim()) : []
+                        disponible: medecin.accepteTeleconsultation,
+                        tarif: medecin.tarifConsultationBase ? medecin.tarifConsultationBase * 0.8 : null
                     }
                 },
                 horaires: horairesParsemaine,
@@ -258,14 +213,11 @@ router.get('/:id',
                     noteMoyenne: noteMoyenne ? Math.round(noteMoyenne * 10) / 10 : null,
                     nombreTotal: evaluations.length,
                     repartitionNotes,
-                    tauxRecommandation,
                     dernières: evaluationsPubliques.slice(0, 5)
                 },
                 statistiques: {
                     consultationsRealisees,
-                    consultationsParType,
-                    accepteNouveauxPatients: medecin.accepteNouveauxPatients,
-                    delaiMoyenReponse: medecin.delaiMoyenReponse ? `${medecin.delaiMoyenReponse}h` : null
+                    consultationsParType
                 },
                 media: {
                     photoProfile: medecin.photoProfile ? (() => {
@@ -303,8 +255,7 @@ router.get('/:id',
                     videoPresentation: medecin.videoPresentation
                 },
                 disponibilite: {
-                    statut: medecin.accepteNouveauxPatients ? 'DISPONIBLE' : 'COMPLET',
-                    message: medecin.messageIndisponibilite,
+                    statut: medecin.disponibilites.length > 0 ? 'DISPONIBLE' : 'COMPLET',
                     prochainCreneauLibre: null // À calculer séparément si besoin
                 }
             };

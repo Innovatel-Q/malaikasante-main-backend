@@ -80,39 +80,6 @@ paths:
                         maxItems: 3
                         items:
                           $ref: '#/components/schemas/RecommandationMedecin'
-                      criteres:
-                        type: object
-                        properties:
-                          position:
-                            type: object
-                            properties:
-                              latitude:
-                                type: number
-                              longitude:
-                                type: number
-                          adresse:
-                            type: string
-                            nullable: true
-                          specialite:
-                            type: string
-                            nullable: true
-                          typeConsultation:
-                            type: string
-                          budget:
-                            type: number
-                            nullable: true
-                      statistiques:
-                        type: object
-                        properties:
-                          nombreMedecinsAnalyses:
-                            type: integer
-                            description: Nombre total de médecins analysés
-                          scoreMoyenTop3:
-                            type: number
-                            description: Score moyen des 3 recommandations
-                          tarifMoyenEstime:
-                            type: integer
-                            description: Tarif moyen estimé des recommandations
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -438,96 +405,46 @@ components:
     RecommandationMedecin:
       type: object
       properties:
-        medecin:
-          type: object
-          properties:
-            id:
-              type: string
-              format: uuid
-              example: "123e4567-e89b-12d3-a456-426614174000"
-            user:
-              type: object
-              properties:
-                id:
-                  type: string
-                  format: uuid
-                nom:
-                  type: string
-                  example: "KOUAME"
-                prenom:
-                  type: string
-                  example: "Jean-Baptiste"
-                email:
-                  type: string
-                  format: email
-                  example: "jb.kouame@email.com"
-                telephone:
-                  type: string
-                  example: "0708123456"
-            specialites:
-              type: array
-              items:
-                type: string
-              example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
-            experienceAnnees:
-              type: integer
-              example: 15
-              nullable: true
-            noteMoyenne:
-              type: number
-              format: float
-              example: 4.2
-            nombreEvaluations:
-              type: integer
-              example: 127
-            photoProfile:
-              type: object
-              nullable: true
-              properties:
-                fileId:
-                  type: string
-                nom_fichier:
-                  type: string
-                url:
-                  type: string
-            bio:
-              type: string
-              nullable: true
-              example: "Cardiologue expérimenté avec 15 ans d'expérience..."
-            languesParlees:
-              type: array
-              items:
-                type: string
-              example: ["Français", "Anglais", "Baoulé"]
-            clinique:
-              type: object
-              nullable: true
-              properties:
-                nom:
-                  type: string
-                  example: "Clinique de la Paix"
-                adresse:
-                  type: string
-                  example: "123 Avenue de la République"
-                ville:
-                  type: string
-                  example: "Abidjan"
-                latitude:
-                  type: number
-                  format: decimal
-                longitude:
-                  type: number
-                  format: decimal
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        nom:
+          type: string
+          example: "KOUAME"
+        prenom:
+          type: string
+          example: "Jean-Baptiste"
+        specialites:
+          type: array
+          items:
+            type: string
+          example: ["CARDIOLOGIE", "MEDECINE_INTERNE"]
+        experienceAnnees:
+          type: integer
+          example: 15
+          nullable: true
+        noteMoyenne:
+          type: number
+          format: float
+          example: 4.2
+        nombreEvaluations:
+          type: integer
+          example: 127
+        photoProfile:
+          type: string
+          nullable: true
+          example: "http://localhost:3000/files/uploads/photos/profil/photo-profil-5-1704461422123-profile.jpg"
+          description: "URL de la photo de profil du médecin"
+        bio:
+          type: string
+          nullable: true
+          example: "Cardiologue expérimenté avec 15 ans d'expérience..."
         score:
           type: number
           format: float
           example: 8.7
           description: Score de recommandation sur 10
-        distance:
-          type: string
-          nullable: true
-          example: "2.1 km"
-          description: Distance calculée depuis la position du patient
         tarifEstime:
           type: number
           example: 25000
@@ -536,44 +453,31 @@ components:
           type: boolean
           example: true
           description: Indique si le médecin a des créneaux disponibles
-        prochainCreneauEstime:
-          type: string
-          example: "Aujourd'hui ou demain"
-          description: Estimation du prochain créneau disponible
+        clinique:
+          type: object
+          nullable: true
+          description: "Informations de la clinique (seulement pour type CLINIQUE)"
+          properties:
+            nom:
+              type: string
+              example: "Clinique de la Paix"
+            adresse:
+              type: string
+              example: "123 Avenue de la République"
+            ville:
+              type: string
+              example: "Abidjan"
+            latitude:
+              type: number
+              format: decimal
+            longitude:
+              type: number
+              format: decimal
         highlighted:
           type: boolean
           example: true
-          description: Indique si cette recommandation est mise en avant
+          description: Indique si cette recommandation est mise en avant (première position)
         raisonMiseEnAvant:
           type: string
-          nullable: true
-          example: "Excellentes évaluations patients • Très proche de votre position"
-          description: Explication de pourquoi cette recommandation est mise en avant
-        scoreDetails:
-          type: object
-          description: Détail des scores par critère pour transparence
-          properties:
-            distance:
-              type: number
-              example: 9.1
-              description: Score distance (0-10)
-            note:
-              type: number
-              example: 8.4
-              description: Score basé sur les évaluations (0-10)
-            experience:
-              type: number
-              example: 7.5
-              description: Score basé sur l'expérience (0-10)
-            disponibilite:
-              type: number
-              example: 10
-              description: Score disponibilité (0 ou 10)
-            budget:
-              type: number
-              example: 10
-              description: Score compatibilité budget (0-10)
-            specialite:
-              type: number
-              example: 10
-              description: Score correspondance spécialité (5 neutre, 10 exact)
+          example: "Excellentes évaluations patients • Grande expérience"
+          description: Explication de pourquoi cette recommandation est proposée
