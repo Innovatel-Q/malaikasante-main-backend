@@ -13,6 +13,10 @@ router.get('/',
     async (req, res) => {
         try {
             const medecinId = req.params.id;
+            
+            if (!medecinId) {
+                return ApiResponse.badRequest(res, 'ID du médecin requis');
+            }
             const {
                 dateDebut,
                 dateFin,
@@ -43,7 +47,7 @@ router.get('/',
             }
 
             // Vérification de l'existence du médecin
-            const medecin = await prisma.medecin.findUnique({
+            const medecin = await prisma.medecin.findFirst({
                 where: {
                     id: medecinId,
                     statutValidation: 'VALIDE',
