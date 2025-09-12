@@ -47,8 +47,9 @@ router.get('/',
                 where: {
                     id: medecinId,
                     statutValidation: 'VALIDE',
-                    statut: 'ACTIF',
-                    accepteNouveauxPatients: true
+                    user: {
+                        statut: 'ACTIF'
+                    }
                 },
                 include: {
                     user: {
@@ -57,31 +58,18 @@ router.get('/',
                             prenom: true
                         }
                     },
-                    horairesConsultation: {
+                    disponibilites: {
                         where: {
-                            actif: true,
-                            typeConsultation: typeConsultation
+                            typeConsultation: typeConsultation,
+                            bloque: false
                         },
                         select: {
                             jourSemaine: true,
                             heureDebut: true,
                             heureFin: true,
-                            dureeConsultation: true
-                        }
-                    },
-                    conges: {
-                        where: {
-                            OR: [
-                                {
-                                    dateDebut: { lte: fin },
-                                    dateFin: { gte: debut }
-                                }
-                            ]
-                        },
-                        select: {
-                            dateDebut: true,
-                            dateFin: true,
-                            motif: true
+                            dureeCreneauMinutes: true,
+                            recurrent: true,
+                            dateSpecifique: true
                         }
                     }
                 }
@@ -93,9 +81,9 @@ router.get('/',
 
             // Vérification que le médecin propose le type de consultation demandé
             const consultationAutorisee = {
-                'CLINIQUE': true,
-                'DOMICILE': medecin.consultationDomicile,
-                'TELECONSULTATION': medecin.teleconsultation
+                'CLINIQUE': medecin.accepteclinique,
+                'DOMICILE': medecin.accepteDomicile,
+                'TELECONSULTATION': medecin.accepteTeleconsultation
             };
 
             if (!consultationAutorisee[typeConsultation]) {
@@ -106,7 +94,7 @@ router.get('/',
             const rendezVousExistants = await prisma.rendezVous.findMany({
                 where: {
                     medecinId: medecinId,
-                    dateHeureDebut: {
+                    dateRendezVous: {
                         gte: debut,
                         lt: fin
                     },
@@ -115,8 +103,9 @@ router.get('/',
                     }
                 },
                 select: {
-                    dateHeureDebut: true,
-                    dateHeureFin: true,
+                    dateRendezVous: true,
+                    heureDebut: true,
+                    heureFin: true,
                     typeConsultation: true
                 }
             });
@@ -140,17 +129,11 @@ router.get('/',
                 const jourSemaine = joursMap[currentDate.getDay()];
                 
                 // Vérifier si le médecin travaille ce jour-là
-                const horairesJour = medecin.horairesConsultation.filter(h => h.jourSemaine === jourSemaine);
+                const horairesJour = medecin.disponibilites.filter(d => 
+                    d.jourSemaine === jourSemaine && 
+                    (d.recurrent || (d.dateSpecifique && new Date(d.dateSpecifique).toDateString() === currentDate.toDateString()))
+                );
                 if (horairesJour.length === 0) continue;
-
-                // Vérifier les congés
-                const estEnConge = medecin.conges.some(conge => {
-                    const dateCongeDebut = new Date(conge.dateDebut);
-                    const dateCongeFin = new Date(conge.dateFin);
-                    return currentDate >= dateCongeDebut && currentDate <= dateCongeFin;
-                });
-
-                if (estEnConge) continue;
 
                 // Pour chaque plage horaire du jour
                 for (const horaire of horairesJour) {
@@ -177,32 +160,28 @@ router.get('/',
 
                         // Vérifier qu'il n'y a pas de conflit avec un RDV existant
                         const conflit = rendezVousExistants.some(rdv => {
-                            const debutRdv = new Date(rdv.dateHeureDebut);
-                            const finRdv = new Date(rdv.dateHeureFin);
+                            const [heureDebutRdv, minuteDebutRdv] = rdv.heureDebut.split(':').map(Number);
+                            const [heureFinRdv, minuteFinRdv] = rdv.heureFin.split(':').map(Number);
+                            
+                            const debutRdv = new Date(rdv.dateRendezVous);
+                            debutRdv.setHours(heureDebutRdv, minuteDebutRdv, 0, 0);
+                            
+                            const finRdv = new Date(rdv.dateRendezVous);
+                            finRdv.setHours(heureFinRdv, minuteFinRdv, 0, 0);
+                            
                             return (creneau < finRdv && finCreneau > debutRdv);
                         });
 
                         if (!conflit) {
                             // Calculer le tarif selon le type de consultation
-                            let tarif = 0;
-                            switch (typeConsultation) {
-                                case 'CLINIQUE':
-                                    tarif = medecin.tarifConsultationClinique;
-                                    break;
-                                case 'DOMICILE':
-                                    tarif = medecin.tarifConsultationDomicile;
-                                    break;
-                                case 'TELECONSULTATION':
-                                    tarif = medecin.tarifTeleconsultation;
-                                    break;
-                            }
+                            let tarif = medecin.tarifConsultationBase || 0;
 
                             creneauxDisponibles.push({
                                 dateHeureDebut: creneau.toISOString(),
                                 dateHeureFin: finCreneau.toISOString(),
                                 jour: jourSemaine,
                                 date: creneau.toISOString().split('T')[0],
-                                heure: creneau.toTimeString().substr(0, 5),
+                                heure: creneau.toTimeString().substring(0, 5),
                                 dureeMinutes: parseInt(dureeConsultation),
                                 typeConsultation,
                                 tarif,
@@ -257,13 +236,11 @@ router.get('/',
                     id: medecin.id,
                     nom: medecin.user.nom,
                     prenom: medecin.user.prenom,
-                    specialite: medecin.specialitePrincipale
+                    specialites: medecin.specialites
                 },
                 typeConsultation,
                 tarif: {
-                    montant: typeConsultation === 'CLINIQUE' ? medecin.tarifConsultationClinique :
-                            typeConsultation === 'DOMICILE' ? medecin.tarifConsultationDomicile :
-                            medecin.tarifTeleconsultation,
+                    montant: medecin.tarifConsultationBase,
                     devise: 'XOF',
                     inclut: typeConsultation === 'DOMICILE' ? 'Frais de déplacement non inclus' : 'Consultation complète'
                 },
@@ -271,7 +248,7 @@ router.get('/',
                 conditions: {
                     annulationGratuite: '24h avant le RDV',
                     confirmationRequise: true,
-                    delaiReponseMax: `${medecin.delaiMoyenReponse || 24}h`
+                    delaiReponseMax: '24h'
                 }
             };
 
