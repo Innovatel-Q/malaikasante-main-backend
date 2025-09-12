@@ -7,7 +7,7 @@ const AuthMiddleware = require('../../middleware/authMiddleware');
 /**
  * GET /doctors/:id/available-slots - Créneaux disponibles d'un médecin
  */
-router.get('/',
+router.get('/:id',
     AuthMiddleware.authenticate(),
     AuthMiddleware.authorize(['PATIENT']),
     async (req, res) => {
