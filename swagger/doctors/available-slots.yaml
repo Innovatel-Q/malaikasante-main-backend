@@ -1,6 +1,6 @@
 openapi: 3.0.0
 paths:
-  /v1/doctors/{id}/available-slots:
+  /v1/doctors/available-slots/{id}:
     get:
       tags:
         - Doctors
