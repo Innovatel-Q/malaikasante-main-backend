@@ -49,28 +49,28 @@ paths:
                       creneauxDisponibles:
                         type: object
                         additionalProperties:
-                          type: array
-                          items:
-                            $ref: '#/components/schemas/CreneauDisponible'
+                          $ref: '#/components/schemas/CreneauxJour'
                         example:
                           "2024-02-01":
-                            - dateHeureDebut: "2024-02-01T08:00:00.000Z"
-                              dateHeureFin: "2024-02-01T08:30:00.000Z"
-                              jour: "JEUDI"
-                              date: "2024-02-01"
-                              heure: "08:00"
-                              typeConsultation: "CLINIQUE"
-                              tarif: 25000
-                              disponible: true
+                            jour: "JEUDI"
+                            date: "2024-02-01"
+                            horaires:
+                              - debut: "08:00"
+                                fin: "08:30"
+                                dateHeureDebut: "2024-02-01T08:00:00.000Z"
+                                dateHeureFin: "2024-02-01T08:30:00.000Z"
+                              - debut: "09:00"
+                                fin: "09:30"
+                                dateHeureDebut: "2024-02-01T09:00:00.000Z"
+                                dateHeureFin: "2024-02-01T09:30:00.000Z"
                           "2024-02-02":
-                            - dateHeureDebut: "2024-02-02T09:00:00.000Z"
-                              dateHeureFin: "2024-02-02T09:30:00.000Z"
-                              jour: "VENDREDI"
-                              date: "2024-02-02"
-                              heure: "09:00"
-                              typeConsultation: "CLINIQUE"
-                              tarif: 25000
-                              disponible: true
+                            jour: "VENDREDI"
+                            date: "2024-02-02"
+                            horaires:
+                              - debut: "08:00"
+                                fin: "08:30"
+                                dateHeureDebut: "2024-02-02T08:00:00.000Z"
+                                dateHeureFin: "2024-02-02T08:30:00.000Z"
                       statistiques:
                         $ref: '#/components/schemas/StatistiquesCreneaux'
         '400':
@@ -137,8 +137,48 @@ components:
               type: string
               example: "XOF"
 
+    CreneauxJour:
+      type: object
+      properties:
+        jour:
+          type: string
+          enum: [LUNDI, MARDI, MERCREDI, JEUDI, VENDREDI, SAMEDI, DIMANCHE]
+          example: "JEUDI"
+        date:
+          type: string
+          format: date
+          example: "2024-02-01"
+        horaires:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreneauHoraire'
+
+    CreneauHoraire:
+      type: object
+      properties:
+        debut:
+          type: string
+          example: "08:00"
+          description: "Heure de début du créneau (HH:mm)"
+        fin:
+          type: string
+          example: "08:30"
+          description: "Heure de fin du créneau (HH:mm)"
+        dateHeureDebut:
+          type: string
+          format: date-time
+          example: "2024-02-01T08:00:00.000Z"
+          description: "Date/heure complète de début pour l'API de réservation"
+        dateHeureFin:
+          type: string
+          format: date-time
+          example: "2024-02-01T08:30:00.000Z"
+          description: "Date/heure complète de fin pour l'API de réservation"
+
     CreneauDisponible:
       type: object
+      deprecated: true
+      description: "Structure obsolète - utiliser CreneauxJour à la place"
       properties:
         dateHeureDebut:
           type: string
@@ -215,6 +255,7 @@ components:
         prochainCreneauDisponible:
           $ref: '#/components/schemas/CreneauDisponible'
           nullable: true
+          description: "Premier créneau disponible (format legacy maintenu pour compatibilité)"
         moyenneCreneauxParJour:
           type: number
           format: float

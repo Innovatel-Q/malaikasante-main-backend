@@ -182,19 +182,29 @@ router.get('/:id',
                 }
             }
 
-            // Organiser par dates
+            // Organiser par dates avec structure optimisée
             const creneauxParDate = {};
             creneauxDisponibles.forEach(creneau => {
                 const date = creneau.date;
                 if (!creneauxParDate[date]) {
-                    creneauxParDate[date] = [];
+                    creneauxParDate[date] = {
+                        jour: creneau.jour,
+                        date: creneau.date,
+                        horaires: []
+                    };
                 }
-                creneauxParDate[date].push(creneau);
+                // Ne garder que les horaires essentiels dans le tableau
+                creneauxParDate[date].horaires.push({
+                    debut: creneau.heure,
+                    fin: creneau.dateHeureFin.split('T')[1].substring(0, 5),
+                    dateHeureDebut: creneau.dateHeureDebut,
+                    dateHeureFin: creneau.dateHeureFin
+                });
             });
 
-            // Trier les créneaux
+            // Trier les horaires de chaque jour
             Object.keys(creneauxParDate).forEach(date => {
-                creneauxParDate[date].sort((a, b) => new Date(a.dateHeureDebut) - new Date(b.dateHeureDebut));
+                creneauxParDate[date].horaires.sort((a, b) => a.debut.localeCompare(b.debut));
             });
 
             // Statistiques
@@ -212,11 +222,11 @@ router.get('/:id',
 
             // Calcul de la répartition par jour
             Object.keys(creneauxParDate).forEach(date => {
-                const jourSemaine = joursMap[new Date(date).getDay()];
+                const jourSemaine = creneauxParDate[date].jour;
                 if (!statistiques.repartitionParJour[jourSemaine]) {
                     statistiques.repartitionParJour[jourSemaine] = 0;
                 }
-                statistiques.repartitionParJour[jourSemaine] += creneauxParDate[date].length;
+                statistiques.repartitionParJour[jourSemaine] += creneauxParDate[date].horaires.length;
             });
 
             // Informations sur le médecin et la consultation
