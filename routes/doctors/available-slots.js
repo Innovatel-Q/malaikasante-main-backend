@@ -5,7 +5,7 @@ const ApiResponse = require('../../services/ApiResponse');
 const AuthMiddleware = require('../../middleware/authMiddleware');
 
 /**
- * GET /doctors/:id/available-slots - Créneaux disponibles d'un médecin
+ * GET /doctors/:id/available-slots - Créneaux disponibles d'un médecin pour la semaine suivante
  */
 router.get('/:id',
     AuthMiddleware.authenticate(),
@@ -17,34 +17,20 @@ router.get('/:id',
             if (!medecinId) {
                 return ApiResponse.badRequest(res, 'ID du médecin requis');
             }
-            const {
-                dateDebut,
-                dateFin,
-                typeConsultation = 'CLINIQUE',
-                dureeConsultation = 30
-            } = req.query;
+            
+            const { typeConsultation = 'CLINIQUE' } = req.query;
 
-            // Validation des paramètres
-            if (!dateDebut) {
-                return ApiResponse.badRequest(res, 'Date de début requise');
-            }
-
-            const debut = new Date(dateDebut);
-            const fin = dateFin ? new Date(dateFin) : new Date(debut.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 jours par défaut
-
-            if (debut < new Date()) {
-                return ApiResponse.badRequest(res, 'La date de début ne peut pas être dans le passé');
-            }
-
-            if (fin <= debut) {
-                return ApiResponse.badRequest(res, 'La date de fin doit être postérieure à la date de début');
-            }
-
-            // Limiter la plage à 30 jours maximum
-            const maxDate = new Date(debut.getTime() + (30 * 24 * 60 * 60 * 1000));
-            if (fin > maxDate) {
-                return ApiResponse.badRequest(res, 'La plage de dates ne peut pas dépasser 30 jours');
-            }
+            // Calculer automatiquement les dates (à partir de demain pour une semaine)
+            const maintenant = new Date();
+            const demain = new Date(maintenant);
+            demain.setDate(maintenant.getDate() + 1);
+            demain.setHours(0, 0, 0, 0); // Début de journée
+            
+            const finSemaine = new Date(demain);
+            finSemaine.setDate(demain.getDate() + 7); // 7 jours à partir de demain
+            
+            const debut = demain;
+            const fin = finSemaine;
 
             // Vérification de l'existence du médecin
             const medecin = await prisma.medecin.findFirst({
@@ -125,9 +111,10 @@ router.get('/:id',
                 6: 'SAMEDI'
             };
 
-            // Générer les créneaux disponibles
+            // Générer les créneaux disponibles (durée fixe de 30 minutes)
             const creneauxDisponibles = [];
-            const dureeMs = parseInt(dureeConsultation) * 60 * 1000;
+            const dureeConsultation = 30; // Durée fixe
+            const dureeMs = dureeConsultation * 60 * 1000;
 
             for (let currentDate = new Date(debut); currentDate < fin; currentDate.setDate(currentDate.getDate() + 1)) {
                 const jourSemaine = joursMap[currentDate.getDay()];
@@ -186,11 +173,9 @@ router.get('/:id',
                                 jour: jourSemaine,
                                 date: creneau.toISOString().split('T')[0],
                                 heure: creneau.toTimeString().substring(0, 5),
-                                dureeMinutes: parseInt(dureeConsultation),
                                 typeConsultation,
                                 tarif,
-                                disponible: true,
-                                urgence: false // Pourrait être calculé selon la proximité
+                                disponible: true
                             });
                         }
                     }
@@ -245,27 +230,14 @@ router.get('/:id',
                 typeConsultation,
                 tarif: {
                     montant: medecin.tarifConsultationBase,
-                    devise: 'XOF',
-                    inclut: typeConsultation === 'DOMICILE' ? 'Frais de déplacement non inclus' : 'Consultation complète'
-                },
-                dureeConsultation: parseInt(dureeConsultation),
-                conditions: {
-                    annulationGratuite: '24h avant le RDV',
-                    confirmationRequise: true,
-                    delaiReponseMax: '24h'
+                    devise: 'XOF'
                 }
             };
 
             return ApiResponse.success(res, 'Créneaux disponibles récupérés avec succès', {
                 informationsConsultation,
                 creneauxDisponibles: creneauxParDate,
-                statistiques,
-                filtres: {
-                    dateDebut: debut.toISOString(),
-                    dateFin: fin.toISOString(),
-                    typeConsultation,
-                    dureeConsultation: parseInt(dureeConsultation)
-                }
+                statistiques
             });
 
         } catch (error) {

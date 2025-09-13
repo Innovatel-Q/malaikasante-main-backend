@@ -4,10 +4,11 @@ paths:
     get:
       tags:
         - Doctors
-      summary: Créneaux disponibles d'un médecin
+      summary: Créneaux disponibles d'un médecin pour la semaine suivante
       description: |
-        Récupère les créneaux de consultation disponibles d'un médecin pour une période donnée.
+        Récupère les créneaux de consultation disponibles d'un médecin pour les 7 jours suivants.
         Prend en compte les rendez-vous existants, les congés, et les horaires de travail.
+        Durée fixe de 30 minutes par créneau.
       security:
         - bearerAuth: []
       parameters:
@@ -19,37 +20,13 @@ paths:
             type: string
             format: uuid
             example: "123e4567-e89b-12d3-a456-426614174000"
-        - name: dateDebut
-          in: query
-          required: true
-          description: Date de début de recherche (YYYY-MM-DD)
-          schema:
-            type: string
-            format: date
-            example: "2024-02-01"
-        - name: dateFin
-          in: query
-          description: Date de fin de recherche (YYYY-MM-DD, max 30 jours après début)
-          schema:
-            type: string
-            format: date
-            example: "2024-02-07"
         - name: typeConsultation
           in: query
-          description: Type de consultation recherché
+          description: Type de consultation recherché (optionnel, CLINIQUE par défaut)
           schema:
             type: string
             enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
             default: CLINIQUE
-        - name: dureeConsultation
-          in: query
-          description: Durée souhaitée en minutes
-          schema:
-            type: integer
-            minimum: 15
-            maximum: 120
-            default: 30
-            example: 30
       responses:
         '200':
           description: Créneaux disponibles récupérés avec succès
@@ -82,37 +59,20 @@ paths:
                               jour: "JEUDI"
                               date: "2024-02-01"
                               heure: "08:00"
-                              dureeMinutes: 30
                               typeConsultation: "CLINIQUE"
                               tarif: 25000
                               disponible: true
-                              urgence: false
                           "2024-02-02":
                             - dateHeureDebut: "2024-02-02T09:00:00.000Z"
                               dateHeureFin: "2024-02-02T09:30:00.000Z"
                               jour: "VENDREDI"
                               date: "2024-02-02"
                               heure: "09:00"
-                              dureeMinutes: 30
                               typeConsultation: "CLINIQUE"
                               tarif: 25000
                               disponible: true
-                              urgence: false
                       statistiques:
                         $ref: '#/components/schemas/StatistiquesCreneaux'
-                      filtres:
-                        type: object
-                        properties:
-                          dateDebut:
-                            type: string
-                            format: date-time
-                          dateFin:
-                            type: string
-                            format: date-time
-                          typeConsultation:
-                            type: string
-                          dureeConsultation:
-                            type: integer
         '400':
           description: Paramètres de requête invalides
           content:
@@ -120,18 +80,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
-                date_passee:
-                  summary: Date dans le passé
+                type_consultation_invalide:
+                  summary: Type de consultation non supporté
                   value:
                     success: false
-                    error: "INVALID_DATE"
-                    message: "La date de début ne peut pas être dans le passé"
-                plage_trop_large:
-                  summary: Plage de dates trop large
-                  value:
-                    success: false
-                    error: "DATE_RANGE_TOO_LARGE"
-                    message: "La plage de dates ne peut pas dépasser 30 jours"
+                    error: "INVALID_CONSULTATION_TYPE"
+                    message: "Le médecin ne propose pas de consultation de type DOMICILE"
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -182,24 +136,6 @@ components:
             devise:
               type: string
               example: "XOF"
-            inclut:
-              type: string
-              example: "Consultation complète"
-        dureeConsultation:
-          type: integer
-          example: 30
-        conditions:
-          type: object
-          properties:
-            annulationGratuite:
-              type: string
-              example: "24h avant le RDV"
-            confirmationRequise:
-              type: boolean
-              example: true
-            delaiReponseMax:
-              type: string
-              example: "24h"
 
     CreneauDisponible:
       type: object
@@ -223,9 +159,6 @@ components:
         heure:
           type: string
           example: "08:00"
-        dureeMinutes:
-          type: integer
-          example: 30
         typeConsultation:
           type: string
           enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
@@ -236,9 +169,6 @@ components:
         disponible:
           type: boolean
           example: true
-        urgence:
-          type: boolean
-          example: false
 
     StatistiquesCreneaux:
       type: object
