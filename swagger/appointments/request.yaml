@@ -8,6 +8,19 @@ paths:
       description: |
         Permet à un patient de demander un rendez-vous auprès d'un médecin validé.
         Le médecin recevra une notification et devra accepter ou refuser la demande.
+
+        **Validations importantes :**
+        - Le médecin doit être validé (statutValidation: VALIDE) et actif (user.statut: ACTIF)
+        - Le médecin doit proposer le type de consultation demandé
+        - Le créneau demandé doit être disponible dans les disponibilités du médecin
+        - Aucun conflit avec d'autres rendez-vous existants
+        - Délai minimum : 2h pour rendez-vous normaux, 30min pour urgents
+        - Pour les consultations à domicile, l'adresse du patient est obligatoire
+
+        **Calcul automatique du tarif :**
+        - Tarif de base du médecin pour les consultations en clinique
+        - Majoration de 50% pour les consultations à domicile
+        - Réduction de 20% pour les téléconsultations
       security:
         - bearerAuth: []
       requestBody:
@@ -107,6 +120,12 @@ paths:
                     success: false
                     error: "SLOT_UNAVAILABLE"
                     message: "Ce créneau n'est plus disponible"
+                medecin_indisponible:
+                  summary: Médecin non disponible pour ce créneau
+                  value:
+                    success: false
+                    error: "DOCTOR_UNAVAILABLE"
+                    message: "Le médecin n'est pas disponible à cette date et heure pour ce type de consultation"
                 profil_incomplet:
                   summary: Profil patient incomplet
                   value:
@@ -142,47 +161,66 @@ components:
               type: string
               format: uuid
               example: "456e7890-e89b-12d3-a456-426614174000"
-            dateHeureDebut:
+            dateRendezVous:
               type: string
-              format: date-time
-              example: "2024-02-15T10:00:00.000Z"
-            dateHeureFin:
+              format: date
+              description: Date du rendez-vous (format YYYY-MM-DD)
+              example: "2024-02-15"
+            heureDebut:
               type: string
-              format: date-time
-              example: "2024-02-15T10:30:00.000Z"
+              pattern: "^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+              description: Heure de début au format HH:MM
+              example: "10:00"
+            heureFin:
+              type: string
+              pattern: "^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+              description: Heure de fin au format HH:MM
+              example: "10:30"
             typeConsultation:
               type: string
+              enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
               example: "CLINIQUE"
             statut:
               type: string
+              enum: [DEMANDE, EN_ATTENTE, CONFIRME, REFUSE, ANNULE, TERMINE]
               example: "DEMANDE"
             motifConsultation:
               type: string
               example: "Contrôle de routine pour hypertension artérielle"
             niveauUrgence:
               type: string
+              enum: [URGENT, NORMAL, SUIVI_ROUTINE]
               example: "NORMAL"
-            tarifPrevu:
+            tarif:
               type: number
+              format: decimal
+              description: Tarif prévu pour la consultation
               example: 25000
             adresseConsultation:
               type: string
-              example: "123 Avenue de la République, Plateau"
+              nullable: true
+              description: Adresse de la consultation (pour les consultations à domicile)
+              example: "123 Rue des Roses, Marcory, Abidjan"
         medecin:
           type: object
           properties:
             id:
               type: string
               format: uuid
+              example: "123e4567-e89b-12d3-a456-426614174000"
             nom:
               type: string
               example: "KOUAME"
             prenom:
               type: string
               example: "Jean-Baptiste"
-            specialite:
-              type: string
-              example: "Cardiologie"
+            specialites:
+              type: array
+              items:
+                type: string
+              description: Liste des spécialités du médecin
+              example: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+              nullable: true
         patient:
           type: object
           properties:
@@ -206,6 +244,7 @@ components:
             - "En cas d'urgence, contactez directement le médecin au 0708123456"
         delaiReponse:
           type: string
+          description: Délai de réponse estimé du médecin
           example: "24h"
         annulation:
           type: object

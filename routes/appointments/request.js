@@ -88,9 +88,7 @@ router.post('/',
             const medecin = await prisma.medecin.findUnique({
                 where: {
                     id: medecinId,
-                    statutValidation: 'VALIDE',
-                    statut: 'ACTIF',
-                    accepteNouveauxPatients: true
+                    statutValidation: 'VALIDE'
                 },
                 include: {
                     user: {
@@ -98,27 +96,28 @@ router.post('/',
                             nom: true,
                             prenom: true,
                             email: true,
-                            telephone: true
+                            telephone: true,
+                            statut: true,
+                            canalCommunicationPrefere: true
                         }
                     },
-                    horairesConsultation: {
+                    disponibilites: {
                         where: {
-                            actif: true,
-                            typeConsultation: typeConsultation
+                            bloque: false
                         }
                     }
                 }
             });
 
-            if (!medecin) {
+            if (!medecin || medecin.user.statut !== 'ACTIF') {
                 return ApiResponse.notFound(res, 'Médecin non trouvé ou non disponible pour de nouveaux patients');
             }
 
             // Vérifier que le médecin propose ce type de consultation
             const typeAutorise = {
-                'CLINIQUE': true,
-                'DOMICILE': medecin.consultationDomicile,
-                'TELECONSULTATION': medecin.teleconsultation
+                'CLINIQUE': medecin.accepteclinique,
+                'DOMICILE': medecin.accepteDomicile,
+                'TELECONSULTATION': medecin.accepteTeleconsultation
             };
 
             if (!typeAutorise[typeConsultation]) {
@@ -132,32 +131,24 @@ router.post('/',
                 }
             }
 
-            // Calcul de la date de fin
+            // Calcul des heures de début et fin
+            const heureDebut = dateRdv.toTimeString().slice(0, 5); // Format HH:MM
             const dateHeureFin = new Date(dateRdv.getTime() + (dureeEstimee * 60 * 1000));
+            const heureFin = dateHeureFin.toTimeString().slice(0, 5); // Format HH:MM
+            const dateRendezVous = new Date(dateRdv.toISOString().split('T')[0]); // Date seule
 
             // Vérification des conflits de créneaux
             const conflitMedecin = await prisma.rendezVous.findFirst({
                 where: {
                     medecinId: medecinId,
+                    dateRendezVous: dateRendezVous,
                     statut: {
                         in: ['CONFIRME', 'EN_ATTENTE', 'DEMANDE']
                     },
                     OR: [
                         {
-                            dateHeureDebut: {
-                                lt: dateHeureFin,
-                                gte: dateRdv
-                            }
-                        },
-                        {
-                            dateHeureFin: {
-                                gt: dateRdv,
-                                lte: dateHeureFin
-                            }
-                        },
-                        {
-                            dateHeureDebut: { lte: dateRdv },
-                            dateHeureFin: { gte: dateHeureFin }
+                            heureDebut: { lt: heureFin },
+                            heureFin: { gt: heureDebut }
                         }
                     ]
                 }
@@ -167,17 +158,20 @@ router.post('/',
                 return ApiResponse.badRequest(res, 'Ce créneau n\'est plus disponible');
             }
 
-            // Vérification des congés du médecin
-            const congeActif = await prisma.conge.findFirst({
-                where: {
-                    medecinId: medecinId,
-                    dateDebut: { lte: dateRdv },
-                    dateFin: { gte: dateRdv }
-                }
+            // Vérification des disponibilités du médecin pour cette date/heure
+            const jourSemaine = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'][dateRdv.getDay()];
+
+            const disponibiliteCompatible = medecin.disponibilites.find(dispo => {
+                // Vérifier le jour de la semaine et le type de consultation
+                return dispo.jourSemaine === jourSemaine &&
+                       dispo.typeConsultation === typeConsultation &&
+                       dispo.heureDebut <= heureDebut &&
+                       dispo.heureFin >= heureFin &&
+                       !dispo.bloque;
             });
 
-            if (congeActif) {
-                return ApiResponse.badRequest(res, 'Le médecin n\'est pas disponible à cette période (congés)');
+            if (!disponibiliteCompatible) {
+                return ApiResponse.badRequest(res, 'Le médecin n\'est pas disponible à cette date et heure pour ce type de consultation');
             }
 
             // Récupération des informations du patient
@@ -197,18 +191,21 @@ router.post('/',
                 return ApiResponse.badRequest(res, 'Profil patient incomplet. Veuillez compléter votre profil avant de prendre rendez-vous');
             }
 
-            // Calcul du tarif
-            let tarif = 0;
+            // Calcul du tarif - utilisation du tarif de base
+            let tarif = medecin.tarifConsultationBase || 0;
+
+            // Ajustement selon le type de consultation (tarif de base + majoration éventuelle)
             switch (typeConsultation) {
                 case 'CLINIQUE':
-                    tarif = medecin.tarifConsultationClinique;
+                    // Tarif de base
                     break;
                 case 'DOMICILE':
-                    tarif = medecin.tarifConsultationDomicile;
-                    // TODO: Ajouter calcul frais de déplacement selon distance
+                    // Majoration de 50% pour consultation à domicile
+                    tarif = tarif * 1.5;
                     break;
                 case 'TELECONSULTATION':
-                    tarif = medecin.tarifTeleconsultation;
+                    // Réduction de 20% pour téléconsultation
+                    tarif = tarif * 0.8;
                     break;
             }
 
@@ -219,16 +216,18 @@ router.post('/',
                     data: {
                         patientId: patientData.id,
                         medecinId: medecinId,
-                        dateHeureDebut: dateRdv,
-                        dateHeureFin: dateHeureFin,
+                        disponibiliteId: disponibiliteCompatible.id,
+                        dateRendezVous: dateRendezVous,
+                        heureDebut: heureDebut,
+                        heureFin: heureFin,
                         typeConsultation,
                         statut: 'DEMANDE',
                         motifConsultation,
                         niveauUrgence,
-                        tarifPrevu: tarif,
-                        adresseConsultation: typeConsultation === 'DOMICILE' ? adressePatient : medecin.adresseConsultation,
-                        informationsComplementaires,
-                        canalNotification: patient.canalCommunicationPrefere || 'EMAIL'
+                        tarif: tarif,
+                        adresseConsultation: typeConsultation === 'DOMICILE' ? adressePatient : null,
+                        ...(informationsComplementaires && { symptomes: informationsComplementaires }),
+                        ...(typeConsultation === 'CLINIQUE' && medecin.cliniqueId && { cliniqueId: medecin.cliniqueId })
                     },
                     include: {
                         patient: {
@@ -262,25 +261,25 @@ router.post('/',
                 await tx.rendezVousHistorique.create({
                     data: {
                         rendezVousId: nouveauRdv.id,
-                        ancienStatut: null,
+                        statutPrecedent: null,
                         nouveauStatut: 'DEMANDE',
-                        motifChangement: 'Demande initiale du patient',
-                        effectueeParId: patient.id,
-                        dateChangement: new Date()
+                        motifModification: 'Demande initiale du patient',
+                        modifieParUserId: patient.id,
+                        dateModification: new Date()
                     }
                 });
 
-                // TODO: Créer notification pour le médecin
+                // Créer notification pour le médecin
                 await tx.notification.create({
                     data: {
                         userId: medecin.userId,
-                        type: 'RENDEZ_VOUS',
+                        typeNotification: 'RENDEZ_VOUS',
                         titre: 'Nouvelle demande de rendez-vous',
-                        contenu: `Nouvelle demande de rendez-vous de ${patient.prenom} ${patient.nom} pour le ${dateRdv.toLocaleDateString('fr-FR')} à ${dateRdv.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
-                        statutNotification: 'EN_ATTENTE',
+                        message: `Nouvelle demande de rendez-vous de ${patient.prenom} ${patient.nom} pour le ${dateRdv.toLocaleDateString('fr-FR')} à ${dateRdv.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+                        statut: 'EN_ATTENTE',
                         priorite: niveauUrgence === 'URGENT' ? 'HAUTE' : 'NORMALE',
                         canal: medecin.user.canalCommunicationPrefere || 'EMAIL',
-                        donnees: JSON.stringify({
+                        donneesSupplementaires: JSON.stringify({
                             rendezVousId: nouveauRdv.id,
                             typeConsultation,
                             niveauUrgence
@@ -295,20 +294,21 @@ router.post('/',
             const reponse = {
                 rendezVous: {
                     id: rendezVous.id,
-                    dateHeureDebut: rendezVous.dateHeureDebut,
-                    dateHeureFin: rendezVous.dateHeureFin,
+                    dateRendezVous: rendezVous.dateRendezVous,
+                    heureDebut: rendezVous.heureDebut,
+                    heureFin: rendezVous.heureFin,
                     typeConsultation: rendezVous.typeConsultation,
                     statut: rendezVous.statut,
                     motifConsultation: rendezVous.motifConsultation,
                     niveauUrgence: rendezVous.niveauUrgence,
-                    tarifPrevu: rendezVous.tarifPrevu,
+                    tarif: rendezVous.tarif,
                     adresseConsultation: rendezVous.adresseConsultation
                 },
                 medecin: {
                     id: medecin.id,
                     nom: medecin.user.nom,
                     prenom: medecin.user.prenom,
-                    specialite: medecin.specialitePrincipale
+                    specialites: medecin.specialites
                 },
                 patient: {
                     nom: patient.nom,
@@ -317,11 +317,11 @@ router.post('/',
                 },
                 prochaines_etapes: [
                     'Votre demande de rendez-vous a été envoyée au médecin',
-                    `Le Dr ${medecin.user.nom} recevra une notification et répondra dans les ${medecin.delaiMoyenReponse || 24}h`,
+                    `Le Dr ${medecin.user.nom} recevra une notification et répondra dans les 24h`,
                     'Vous recevrez une notification de sa réponse par ' + (patient.canalCommunicationPrefere || 'email'),
                     'En cas d\'urgence, contactez directement le médecin au ' + medecin.user.telephone
                 ],
-                delaiReponse: `${medecin.delaiMoyenReponse || 24}h`,
+                delaiReponse: '24h',
                 annulation: {
                     possible: true,
                     gratuite: true,
