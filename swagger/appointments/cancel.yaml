@@ -116,10 +116,21 @@ components:
             statut:
               type: string
               example: "ANNULE"
-            dateHeureDebut:
+            dateRendezVous:
               type: string
-              format: date-time
-              example: "2024-02-15T10:00:00.000Z"
+              format: date
+              description: Date du rendez-vous
+              example: "2024-02-15"
+            heureDebut:
+              type: string
+              pattern: "^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+              description: Heure de début
+              example: "10:00"
+            heureFin:
+              type: string
+              pattern: "^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+              description: Heure de fin
+              example: "10:30"
             dateAnnulation:
               type: string
               format: date-time
@@ -161,9 +172,13 @@ components:
                 prenom:
                   type: string
                   example: "Jean-Baptiste"
-                specialite:
-                  type: string
-                  example: "Cardiologie"
+                specialites:
+                  type: array
+                  items:
+                    type: string
+                  description: Spécialités du médecin
+                  example: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+                  nullable: true
             - type: object
               properties:
                 type:
