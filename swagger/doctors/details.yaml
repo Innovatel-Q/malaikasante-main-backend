@@ -1,6 +1,6 @@
 openapi: 3.0.0
 paths:
-  /v1/doctors/{id}/details:
+  /v1/doctors/details/{id}:
     get:
       tags:
         - Doctors

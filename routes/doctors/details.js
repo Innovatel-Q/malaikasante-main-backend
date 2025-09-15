@@ -14,7 +14,7 @@ const TARIF_MULTIPLIERS = {
 /**
  * GET /doctors/:id/details - Profil détaillé d'un médecin
  */
-router.get('/',
+router.get('/:id',
     AuthMiddleware.authenticate(),
     AuthMiddleware.authorize(['PATIENT']),
     param('id').isUUID().withMessage('ID médecin invalide'),
