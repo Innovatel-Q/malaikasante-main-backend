@@ -193,9 +193,11 @@ components:
                 rayonKm:
                   type: integer
                   example: 15
+                  description: "Rayon de déplacement en kilomètres"
                 fraisDeplacementParKm:
                   type: number
                   example: 500
+                  description: "Frais de déplacement par kilomètre"
             teleconsultation:
               type: object
               properties:

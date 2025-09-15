@@ -3,6 +3,13 @@ const router = express.Router();
 const prisma = require('../../prisma/client');
 const ApiResponse = require('../../services/ApiResponse');
 const AuthMiddleware = require('../../middleware/authMiddleware');
+const { body, param, validationResult } = require('express-validator');
+
+// Configuration des multipliers de tarifs
+const TARIF_MULTIPLIERS = {
+    DOMICILE: 1.4,
+    TELECONSULTATION: 0.75
+};
 
 /**
  * GET /doctors/:id/details - Profil détaillé d'un médecin
@@ -10,18 +17,17 @@ const AuthMiddleware = require('../../middleware/authMiddleware');
 router.get('/',
     AuthMiddleware.authenticate(),
     AuthMiddleware.authorize(['PATIENT']),
+    param('id').isUUID().withMessage('ID médecin invalide'),
     async (req, res) => {
+        // Validation des paramètres
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return ApiResponse.badRequest(res, 'Paramètres invalides', errors.array());
+        }
         try {
             const medecinId = req.params.id;
-            
-            console.log('🔍 Route details - ID reçu:', medecinId);
-            console.log('🔍 Route details - Params complets:', req.params);
-            
-            if (!medecinId) {
-                return ApiResponse.badRequest(res, 'ID du médecin requis');
-            }
 
-            // Vérification de l'existence du médecin
+            // Vérification de l'existence du médecin avec toutes les données nécessaires
             const medecin = await prisma.medecin.findUnique({
                 where: {
                     id: medecinId,
@@ -41,19 +47,22 @@ router.get('/',
                     },
                     clinique: {
                         select: {
+                            id: true,
                             nom: true,
                             adresse: true,
                             ville: true,
+                            codePostal: true,
                             telephone: true,
                             latitude: true,
-                            longitude: true
+                            longitude: true,
+                            informationsAcces: true
                         }
                     },
                     rendezVous: {
                         where: {
                             statut: 'TERMINE',
                             createdAt: {
-                                gte: new Date(new Date().getFullYear() - 1, 0, 1) // 12 derniers mois
+                                gte: new Date(new Date().getFullYear() - 1, 0, 1)
                             }
                         },
                         select: {
@@ -86,7 +95,7 @@ router.get('/',
                 return ApiResponse.notFound(res, 'Médecin non trouvé ou non disponible');
             }
 
-            // Récupération des évaluations séparément
+            // Récupération des évaluations avec recommandations
             const evaluations = await prisma.evaluation.findMany({
                 where: {
                     evalueUserId: medecin.userId,
@@ -96,6 +105,7 @@ router.get('/',
                 select: {
                     note: true,
                     commentaire: true,
+                    recommande: true,
                     dateEvaluation: true,
                     evaluateur: {
                         select: {
@@ -106,21 +116,27 @@ router.get('/',
                 orderBy: {
                     dateEvaluation: 'desc'
                 },
-                take: 10
+                take: 50 // Plus d'évaluations pour calculs précis
             });
 
-            // Calcul des statistiques d'évaluation
+            // Calcul des statistiques d'évaluation détaillées
             const noteMoyenne = evaluations.length > 0
                 ? evaluations.reduce((sum, evaluation) => sum + evaluation.note, 0) / evaluations.length
                 : null;
 
             const repartitionNotes = {
-                5: evaluations.filter(e => e.note === 5).length,
-                4: evaluations.filter(e => e.note === 4).length,
-                3: evaluations.filter(e => e.note === 3).length,
-                2: evaluations.filter(e => e.note === 2).length,
-                1: evaluations.filter(e => e.note === 1).length
+                "5": evaluations.filter(e => e.note === 5).length,
+                "4": evaluations.filter(e => e.note === 4).length,
+                "3": evaluations.filter(e => e.note === 3).length,
+                "2": evaluations.filter(e => e.note === 2).length,
+                "1": evaluations.filter(e => e.note === 1).length
             };
+
+            // Calcul du taux de recommandation
+            const evaluationsAvecRecommandation = evaluations.filter(e => e.recommande !== null);
+            const tauxRecommandation = evaluationsAvecRecommandation.length > 0
+                ? Math.round((evaluationsAvecRecommandation.filter(e => e.recommande).length / evaluationsAvecRecommandation.length) * 100)
+                : 0;
 
             const inscriptionAnnees = Math.floor((new Date() - new Date(medecin.user.createdAt)) / (1000 * 60 * 60 * 24 * 365.25));
 
@@ -133,9 +149,10 @@ router.get('/',
             };
 
             // Formatage des évaluations publiques (anonymisées)
-            const evaluationsPubliques = evaluations.map(evaluation => ({
+            const evaluationsPubliques = evaluations.slice(0, 10).map(evaluation => ({
                 note: evaluation.note,
                 commentaire: evaluation.commentaire,
+                recommande: evaluation.recommande || false,
                 date: evaluation.dateEvaluation,
                 patientPrenom: evaluation.evaluateur?.prenom ? `${evaluation.evaluateur.prenom.charAt(0)}***` : 'Anonyme'
             }));
@@ -153,24 +170,37 @@ router.get('/',
                     }));
             });
 
-            // Parse des données JSON
-            const specialites = medecin.specialites ? 
-                (Array.isArray(medecin.specialites) ? medecin.specialites : JSON.parse(medecin.specialites || '[]'))
-                : [];
-            
-            const diplomes = medecin.diplomes ? 
-                (Array.isArray(medecin.diplomes) ? medecin.diplomes : JSON.parse(medecin.diplomes || '[]'))
-                : [];
-            
-            const certifications = medecin.certifications ? 
-                (Array.isArray(medecin.certifications) ? medecin.certifications : JSON.parse(medecin.certifications || '[]'))
-                : [];
+            // Parse sécurisé des données JSON
+            const parseJsonField = (field, defaultValue = []) => {
+                if (!field) return defaultValue;
+                if (Array.isArray(field)) return field;
+                try {
+                    return JSON.parse(field);
+                } catch (error) {
+                    console.warn(`Erreur parsing JSON pour le champ:`, error);
+                    return defaultValue;
+                }
+            };
 
-            const languesParlees = medecin.languesParlees ? 
-                (Array.isArray(medecin.languesParlees) ? medecin.languesParlees : JSON.parse(medecin.languesParlees || '[]'))
-                : [];
+            const specialites = parseJsonField(medecin.specialites);
+            const diplomes = parseJsonField(medecin.diplomes);
+            const certifications = parseJsonField(medecin.certifications);
+            const languesParlees = parseJsonField(medecin.languesParlees);
 
-            // Réponse complète
+            // Extraction de la spécialité principale
+            const specialitePrincipale = specialites.length > 0 ? specialites[0] : null;
+            const specialitesSecondaires = specialites.slice(1).map(spec => ({
+                nom: spec,
+                certifie: true, // À améliorer selon la logique métier
+                experienceAnnees: medecin.experienceAnnees || 0
+            }));
+
+            // Calcul du prochain créneau disponible (simple)
+            const maintenant = new Date();
+            const prochainCreneauLibre = medecin.disponibilites.length > 0 ?
+                new Date(maintenant.getTime() + 24 * 60 * 60 * 1000) : null; // Demain par défaut
+
+            // Construction de la réponse complète selon le schéma Swagger
             const profilComplet = {
                 id: medecin.id,
                 informationsPersonnelles: {
@@ -181,13 +211,12 @@ router.get('/',
                 },
                 informationsProfessionnelles: {
                     numeroOrdre: medecin.numeroOrdre,
-                    specialites: specialites,
-                    bio: medecin.bio,
-                    experienceAnnees: medecin.experienceAnnees,
+                    specialitePrincipale: specialitePrincipale,
+                    specialitesSecondaires: specialitesSecondaires,
+                    biographie: medecin.bio,
+                    experienceAnnees: medecin.experienceAnnees || 0,
                     inscriptionPlateforme: inscriptionAnnees,
-                    languesParlees: languesParlees,
-                    noteMoyenne: parseFloat(medecin.noteMoyenne) || 0,
-                    nombreEvaluations: medecin.nombreEvaluations
+                    languesParlees: languesParlees
                 },
                 formation: {
                     diplomes: diplomes,
@@ -197,15 +226,23 @@ router.get('/',
                     clinique: {
                         disponible: medecin.accepteclinique,
                         tarif: medecin.tarifConsultationBase,
-                        clinique: medecin.clinique
+                        adresse: medecin.clinique?.adresse,
+                        ville: medecin.clinique?.ville,
+                        codePostal: medecin.clinique?.codePostal,
+                        informationsAcces: medecin.clinique?.informationsAcces
                     },
                     domicile: {
                         disponible: medecin.accepteDomicile,
-                        tarif: medecin.tarifConsultationBase ? medecin.tarifConsultationBase * 1.5 : null
+                        tarif: medecin.tarifConsultationBase ?
+                            Math.round(medecin.tarifConsultationBase * TARIF_MULTIPLIERS.DOMICILE) : null,
+                        rayonKm: 15, // À configurer selon les préférences médecin
+                        fraisDeplacementParKm: 500
                     },
                     teleconsultation: {
                         disponible: medecin.accepteTeleconsultation,
-                        tarif: medecin.tarifConsultationBase ? medecin.tarifConsultationBase * 0.8 : null
+                        tarif: medecin.tarifConsultationBase ?
+                            Math.round(medecin.tarifConsultationBase * TARIF_MULTIPLIERS.TELECONSULTATION) : null,
+                        plateformesUtilisees: ["Zoom", "Google Meet"] // À récupérer des préférences médecin
                     }
                 },
                 horaires: horairesParsemaine,
@@ -213,21 +250,22 @@ router.get('/',
                     noteMoyenne: noteMoyenne ? Math.round(noteMoyenne * 10) / 10 : null,
                     nombreTotal: evaluations.length,
                     repartitionNotes,
+                    tauxRecommandation,
                     dernières: evaluationsPubliques.slice(0, 5)
                 },
                 statistiques: {
                     consultationsRealisees,
-                    consultationsParType
+                    consultationsParType,
+                    accepteNouveauxPatients: true, // À déterminer selon la logique métier
+                    delaiMoyenReponse: "12h" // À calculer selon les données réelles
                 },
                 media: {
                     photoProfile: medecin.photoProfile ? (() => {
                         try {
-                            const photoData = typeof medecin.photoProfile === 'string' 
-                                ? JSON.parse(medecin.photoProfile) 
-                                : medecin.photoProfile;
+                            const photoData = parseJsonField(medecin.photoProfile, {});
                             return {
                                 ...photoData,
-                                url: photoData.nom_fichier 
+                                url: photoData.nom_fichier
                                     ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/profil/${photoData.nom_fichier}`
                                     : null
                             };
@@ -238,12 +276,10 @@ router.get('/',
                     })() : null,
                     photoCabinet: medecin.photoCabinet ? (() => {
                         try {
-                            const photoData = typeof medecin.photoCabinet === 'string' 
-                                ? JSON.parse(medecin.photoCabinet) 
-                                : medecin.photoCabinet;
+                            const photoData = parseJsonField(medecin.photoCabinet, {});
                             return {
                                 ...photoData,
-                                url: photoData.nom_fichier 
+                                url: photoData.nom_fichier
                                     ? `${process.env.BASE_URL || 'http://localhost:3000'}/files/uploads/photos/cabinet/${photoData.nom_fichier}`
                                     : null
                             };
@@ -256,7 +292,8 @@ router.get('/',
                 },
                 disponibilite: {
                     statut: medecin.disponibilites.length > 0 ? 'DISPONIBLE' : 'COMPLET',
-                    prochainCreneauLibre: null // À calculer séparément si besoin
+                    message: null,
+                    prochainCreneauLibre: prochainCreneauLibre
                 }
             };
 
@@ -264,6 +301,12 @@ router.get('/',
 
         } catch (error) {
             console.error('❌ Erreur récupération profil médecin:', error);
+
+            // Gestion des erreurs spécifiques
+            if (error.code === 'P2025') {
+                return ApiResponse.notFound(res, 'Médecin non trouvé');
+            }
+
             return ApiResponse.serverError(res, 'Erreur lors de la récupération du profil médecin');
         }
     }
