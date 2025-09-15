@@ -24,7 +24,7 @@ const cancelAppointmentSchema = {
 /**
  * DELETE /appointments/:id/cancel - Annuler un rendez-vous
  */
-router.delete('/',
+router.delete('/:id',
     AuthMiddleware.authenticate(),
     AuthMiddleware.authorize(['PATIENT', 'MEDECIN']),
     BodyFilter.validate(cancelAppointmentSchema),

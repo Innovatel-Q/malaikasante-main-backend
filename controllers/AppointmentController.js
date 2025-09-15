@@ -11,7 +11,7 @@ const rescheduleRoute = require('../routes/appointments/reschedule');
 // Organisation modulaire des routes rendez-vous
 router.use('/request', requestRoute);
 router.use('/:id/respond', respondRoute);
-router.use('/:id/cancel', cancelRoute);
+router.use('/cancel', cancelRoute);
 router.use('/:id/reschedule', rescheduleRoute);
 
 // La route list doit être en dernier pour éviter les conflits
