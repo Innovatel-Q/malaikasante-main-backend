@@ -132,11 +132,7 @@ router.get('/',
                 "1": evaluations.filter(e => e.note === 1).length
             };
 
-            // Calcul du taux de recommandation
-            const evaluationsAvecRecommandation = evaluations.filter(e => e.recommande !== null);
-            const tauxRecommandation = evaluationsAvecRecommandation.length > 0
-                ? Math.round((evaluationsAvecRecommandation.filter(e => e.recommande).length / evaluationsAvecRecommandation.length) * 100)
-                : 0;
+            // Le taux de recommandation n'est pas stocké en base, on le retire
 
             const inscriptionAnnees = Math.floor((new Date() - new Date(medecin.user.createdAt)) / (1000 * 60 * 60 * 24 * 365.25));
 
@@ -190,10 +186,8 @@ router.get('/',
             // La spécialité principale est la première de la liste
             const specialitePrincipale = specialites.length > 0 ? specialites[0] : null;
 
-            // Calcul du prochain créneau disponible (simple)
-            const maintenant = new Date();
-            const prochainCreneauLibre = medecin.disponibilites.length > 0 ?
-                new Date(maintenant.getTime() + 24 * 60 * 60 * 1000) : null; // Demain par défaut
+            // Statut de disponibilité basé sur les créneaux existants
+            const statutDisponibilite = medecin.disponibilites.length > 0 ? 'DISPONIBLE' : 'COMPLET';
 
             // Construction de la réponse complète selon le schéma Swagger
             const profilComplet = {
@@ -214,8 +208,8 @@ router.get('/',
                     languesParlees: languesParlees
                 },
                 formation: {
-                    diplomes: diplomes,
-                    certifications: certifications
+                    diplomes: diplomes, // Fichiers JSON simples depuis la DB
+                    certifications: certifications // Fichiers JSON simples depuis la DB
                 },
                 consultations: {
                     clinique: {
@@ -241,17 +235,14 @@ router.get('/',
                 },
                 horaires: horairesParsemaine,
                 evaluations: {
-                    noteMoyenne: noteMoyenne ? Math.round(noteMoyenne * 10) / 10 : null,
-                    nombreTotal: evaluations.length,
+                    noteMoyenne: noteMoyenne ? Math.round(noteMoyenne * 10) / 10 : medecin.noteMoyenne,
+                    nombreTotal: evaluations.length || medecin.nombreEvaluations,
                     repartitionNotes,
-                    tauxRecommandation,
                     dernières: evaluationsPubliques.slice(0, 5)
                 },
                 statistiques: {
                     consultationsRealisees,
-                    consultationsParType,
-                    accepteNouveauxPatients: true, // À déterminer selon la logique métier
-                    delaiMoyenReponse: "12h" // À calculer selon les données réelles
+                    consultationsParType
                 },
                 media: {
                     photoProfile: medecin.photoProfile ? (() => {
@@ -285,9 +276,7 @@ router.get('/',
                     videoPresentation: medecin.videoPresentation
                 },
                 disponibilite: {
-                    statut: medecin.disponibilites.length > 0 ? 'DISPONIBLE' : 'COMPLET',
-                    message: null,
-                    prochainCreneauLibre: prochainCreneauLibre
+                    statut: statutDisponibilite
                 }
             };
 

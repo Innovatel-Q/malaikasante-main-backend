@@ -304,13 +304,6 @@ components:
                 TELECONSULTATION:
                   type: integer
                   example: 30
-            accepteNouveauxPatients:
-              type: boolean
-              example: true
-            delaiMoyenReponse:
-              type: string
-              example: "12h"
-              nullable: true
         media:
           type: object
           properties:
