@@ -187,13 +187,8 @@ router.get('/',
             const certifications = parseJsonField(medecin.certifications);
             const languesParlees = parseJsonField(medecin.languesParlees);
 
-            // Extraction de la spécialité principale
+            // La spécialité principale est la première de la liste
             const specialitePrincipale = specialites.length > 0 ? specialites[0] : null;
-            const specialitesSecondaires = specialites.slice(1).map(spec => ({
-                nom: spec,
-                certifie: true, // À améliorer selon la logique métier
-                experienceAnnees: medecin.experienceAnnees || 0
-            }));
 
             // Calcul du prochain créneau disponible (simple)
             const maintenant = new Date();
@@ -212,7 +207,7 @@ router.get('/',
                 informationsProfessionnelles: {
                     numeroOrdre: medecin.numeroOrdre,
                     specialitePrincipale: specialitePrincipale,
-                    specialitesSecondaires: specialitesSecondaires,
+                    specialites: specialites, // Toutes les spécialités
                     biographie: medecin.bio,
                     experienceAnnees: medecin.experienceAnnees || 0,
                     inscriptionPlateforme: inscriptionAnnees,

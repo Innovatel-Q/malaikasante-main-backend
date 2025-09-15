@@ -86,20 +86,12 @@ components:
             specialitePrincipale:
               type: string
               example: "Cardiologie"
-            specialitesSecondaires:
+            specialites:
               type: array
               items:
-                type: object
-                properties:
-                  nom:
-                    type: string
-                    example: "Échographie cardiaque"
-                  certifie:
-                    type: boolean
-                    example: true
-                  experienceAnnees:
-                    type: integer
-                    example: 8
+                type: string
+              example: ["Cardiologie", "Chirurgie", "Échographie"]
+              description: "Liste complète de toutes les spécialités du médecin"
             biographie:
               type: string
               example: "Cardiologue expérimenté avec 15 ans de pratique..."
