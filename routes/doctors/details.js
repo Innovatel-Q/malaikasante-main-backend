@@ -103,7 +103,6 @@ router.get('/:id',
                 select: {
                     note: true,
                     commentaire: true,
-                    recommande: true,
                     dateEvaluation: true,
                     evaluateur: {
                         select: {
@@ -146,7 +145,6 @@ router.get('/:id',
             const evaluationsPubliques = evaluations.slice(0, 10).map(evaluation => ({
                 note: evaluation.note,
                 commentaire: evaluation.commentaire,
-                recommande: evaluation.recommande || false,
                 date: evaluation.dateEvaluation,
                 patientPrenom: evaluation.evaluateur?.prenom ? `${evaluation.evaluateur.prenom.charAt(0)}***` : 'Anonyme'
             }));
