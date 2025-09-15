@@ -3,7 +3,7 @@ const router = express.Router();
 const prisma = require('../../prisma/client');
 const ApiResponse = require('../../services/ApiResponse');
 const AuthMiddleware = require('../../middleware/authMiddleware');
-const { body, param, validationResult } = require('express-validator');
+const { param, validationResult } = require('express-validator');
 
 // Configuration des multipliers de tarifs
 const TARIF_MULTIPLIERS = {
@@ -208,8 +208,8 @@ router.get('/:id',
                     languesParlees: languesParlees
                 },
                 formation: {
-                    diplomes: diplomes, // Fichiers JSON simples depuis la DB
-                    certifications: certifications // Fichiers JSON simples depuis la DB
+                    diplomes: diplomes ? (Array.isArray(diplomes) ? diplomes.map(d => d.titre || 'Diplôme') : ['Diplôme']) : [],
+                    certifications: certifications ? (Array.isArray(certifications) ? certifications.map(c => c.titre || 'Certification') : ['Certification']) : []
                 },
                 consultations: {
                     clinique: {

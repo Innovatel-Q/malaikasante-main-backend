@@ -112,43 +112,15 @@ components:
             diplomes:
               type: array
               items:
-                type: object
-                properties:
-                  institution:
-                    type: string
-                    example: "Université Félix Houphouët-Boigny"
-                  diplome:
-                    type: string
-                    example: "Doctorat en Médecine"
-                  specialite:
-                    type: string
-                    example: "Cardiologie"
-                  anneeObtention:
-                    type: integer
-                    example: 2008
-                  pays:
-                    type: string
-                    example: "Côte d'Ivoire"
+                type: string
+              example: ["Doctorat en Médecine", "Diplôme"]
+              description: "Titres des diplômes"
             certifications:
               type: array
               items:
-                type: object
-                properties:
-                  nom:
-                    type: string
-                    example: "Certification Échographie Cardiaque"
-                  organisme:
-                    type: string
-                    example: "Société Ivoirienne de Cardiologie"
-                  dateObtention:
-                    type: string
-                    format: date
-                    example: "2010-06-15"
-                  dateExpiration:
-                    type: string
-                    format: date
-                    nullable: true
-                    example: "2025-06-15"
+                type: string
+              example: ["Certification Cardiologie", "Certification"]
+              description: "Titres des certifications"
         consultations:
           type: object
           properties:
