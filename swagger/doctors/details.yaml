@@ -249,9 +249,6 @@ components:
                   commentaire:
                     type: string
                     example: "Excellent médecin, très à l'écoute"
-                  recommande:
-                    type: boolean
-                    example: true
                   date:
                     type: string
                     format: date-time
