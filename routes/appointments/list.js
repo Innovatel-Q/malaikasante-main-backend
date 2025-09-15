@@ -224,21 +224,27 @@ router.get('/',
                 // Actions possibles selon le statut et le rôle
                 rdvEnrichi.actionsPossibles = [];
 
+                // Actions pour les médecins sur les demandes
                 if (rdv.statut === 'DEMANDE' && user.role === 'MEDECIN') {
                     rdvEnrichi.actionsPossibles.push('ACCEPTER', 'REFUSER');
                 }
 
+                // Actions communes : Annuler et Reprogrammer (si pas encore passé)
                 if (['DEMANDE', 'EN_ATTENTE', 'CONFIRME'].includes(rdv.statut) && !estPasse) {
                     rdvEnrichi.actionsPossibles.push('ANNULER');
-                    if (rdv.statut === 'CONFIRME') {
+
+                    // Reprogrammer possible pour les RDV confirmés ou en attente
+                    if (['EN_ATTENTE', 'CONFIRME'].includes(rdv.statut)) {
                         rdvEnrichi.actionsPossibles.push('REPROGRAMMER');
                     }
                 }
 
+                // Évaluer après un RDV terminé
                 if (rdv.statut === 'TERMINE' && !rdvEnrichi.evaluation.aEvalue) {
                     rdvEnrichi.actionsPossibles.push('EVALUER');
                 }
 
+                // Commencer consultation (médecin uniquement, si RDV proche)
                 if (rdv.statut === 'CONFIRME' && user.role === 'MEDECIN' && estProche) {
                     rdvEnrichi.actionsPossibles.push('COMMENCER_CONSULTATION');
                 }
