@@ -191,6 +191,12 @@ components:
               type: integer
         actionsPossibles:
           type: array
+          description: |
+            Actions possibles selon le statut et le rôle:
+            - DEMANDE: ANNULER (tous), ACCEPTER/REFUSER (médecin)
+            - EN_ATTENTE: ANNULER, REPROGRAMMER (tous)
+            - CONFIRME: ANNULER, REPROGRAMMER (tous), COMMENCER_CONSULTATION (médecin si proche)
+            - TERMINE: EVALUER (si pas encore évalué)
           items:
             type: string
             enum: [ACCEPTER, REFUSER, ANNULER, REPROGRAMMER, EVALUER, COMMENCER_CONSULTATION]
