@@ -14,14 +14,8 @@ router.get('/',
         try {
             const user = req.user;
             const {
-                statut,
-                dateDebut,
-                dateFin,
-                typeConsultation,
                 page = 1,
-                limit = 20,
-                sortBy = 'dateHeureDebut',
-                sortOrder = 'desc'
+                limit = 20
             } = req.query;
 
             const pageInt = parseInt(page);
@@ -106,29 +100,7 @@ router.get('/',
                 };
             }
 
-            // Filtres additionnels
-            if (statut) {
-                whereClause.statut = statut;
-            }
-
-            if (dateDebut && dateFin) {
-                whereClause.dateHeureDebut = {
-                    gte: new Date(dateDebut),
-                    lte: new Date(dateFin)
-                };
-            } else if (dateDebut) {
-                whereClause.dateHeureDebut = {
-                    gte: new Date(dateDebut)
-                };
-            } else if (dateFin) {
-                whereClause.dateHeureDebut = {
-                    lte: new Date(dateFin)
-                };
-            }
-
-            if (typeConsultation) {
-                whereClause.typeConsultation = typeConsultation;
-            }
+            // Pas de filtres additionnels - liste complète avec pagination uniquement
 
             // Requêtes parallèles pour les données et le compte
             const [rendezVous, totalCount] = await Promise.all([
@@ -141,16 +113,14 @@ router.get('/',
                                 id: true,
                                 note: true,
                                 commentaire: true,
-                                recommande: true,
                                 typeEvaluation: true,
-                                createdAt: true
+                                dateEvaluation: true
                             }
                         },
                         consultation: {
                             select: {
                                 id: true,
                                 diagnostic: true,
-                                traitementPrescrit: true,
                                 documentsJoints: true
                             }
                         }
@@ -158,7 +128,7 @@ router.get('/',
                     skip: offset,
                     take: limitInt,
                     orderBy: {
-                        [sortBy]: sortOrder
+                        dateRendezVous: 'desc'
                     }
                 }),
                 prisma.rendezVous.count({ where: whereClause })
@@ -167,46 +137,39 @@ router.get('/',
             // Enrichissement des données selon le rôle
             const rendezVousEnriches = rendezVous.map(rdv => {
                 const maintenant = new Date();
-                const dateRdv = new Date(rdv.dateHeureDebut);
-                const estPasse = dateRdv < maintenant;
-                const estProche = !estPasse && (dateRdv - maintenant) < (24 * 60 * 60 * 1000);
+                // Reconstituer la date complète à partir de dateRendezVous et heureDebut
+                const dateComplete = new Date(`${rdv.dateRendezVous.toISOString().split('T')[0]}T${rdv.heureDebut}:00.000Z`);
+                const estPasse = dateComplete < maintenant;
+                const estProche = !estPasse && (dateComplete - maintenant) < (24 * 60 * 60 * 1000);
 
                 // Informations de base
                 const rdvEnrichi = {
                     id: rdv.id,
-                    dateHeureDebut: rdv.dateHeureDebut,
-                    dateHeureFin: rdv.dateHeureFin,
+                    dateRendezVous: rdv.dateRendezVous,
+                    heureDebut: rdv.heureDebut,
+                    heureFin: rdv.heureFin,
                     typeConsultation: rdv.typeConsultation,
                     statut: rdv.statut,
                     motifConsultation: rdv.motifConsultation,
                     niveauUrgence: rdv.niveauUrgence,
-                    tarifPrevu: rdv.tarifPrevu,
+                    tarif: rdv.tarif,
                     adresseConsultation: rdv.adresseConsultation,
-                    informationsComplementaires: rdv.informationsComplementaires,
+                    symptomes: rdv.symptomes,
                     
                     // Calculs temporels
                     estPasse,
                     estProche,
-                    dansXMinutes: !estPasse ? Math.round((dateRdv - maintenant) / (1000 * 60)) : null,
-                    dateHumaine: dateRdv.toLocaleDateString('fr-FR', {
+                    dansXMinutes: !estPasse ? Math.round((dateComplete - maintenant) / (1000 * 60)) : null,
+                    dateHumaine: dateComplete.toLocaleDateString('fr-FR', {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'
                     }),
-                    heureHumaine: dateRdv.toLocaleTimeString('fr-FR', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }),
+                    heureHumaine: rdv.heureDebut,
 
                     // Dates importantes
                     dateCreation: rdv.createdAt,
-                    dateReponse: rdv.dateReponse,
-                    dateAnnulation: rdv.dateAnnulation,
-                    
-                    // Messages personnalisés
-                    messagePersonnaliseMedecin: rdv.messagePersonnaliseMedecin,
-                    messagePersonnalisePatient: rdv.messagePersonnalisePatient,
                     
                     // Informations sur l'autre partie
                     partenaire: {}
@@ -219,11 +182,9 @@ router.get('/',
                         id: rdv.medecin.id,
                         nom: rdv.medecin.user.nom,
                         prenom: rdv.medecin.user.prenom,
-                        specialite: rdv.medecin.specialitePrincipale,
+                        specialites: rdv.medecin.specialites,
                         telephone: rdv.medecin.user.telephone,
-                        email: rdv.medecin.user.email,
-                        adresseCabinet: rdv.medecin.adresseConsultation,
-                        villeCabinet: rdv.medecin.villeConsultation
+                        email: rdv.medecin.user.email
                     };
                 } else {
                     // Vue médecin : informations sur le patient
@@ -245,12 +206,11 @@ router.get('/',
                 rdvEnrichi.evaluation = {
                     aEvalue: rdv.evaluations.length > 0,
                     details: rdv.evaluations.map(evaluation => ({
-                        id: eval.id,
+                        id: evaluation.id,
                         note: evaluation.note,
                         commentaire: evaluation.commentaire,
-                        recommande: evaluation.recommande,
-                        typeEvaluation: eval.typeEvaluation,
-                        date: evaluation.createdAt
+                        typeEvaluation: evaluation.typeEvaluation,
+                        date: evaluation.dateEvaluation
                     }))
                 };
 
@@ -258,8 +218,7 @@ router.get('/',
                 rdvEnrichi.consultation = rdv.consultation ? {
                     id: rdv.consultation.id,
                     aDiagnostic: !!rdv.consultation.diagnostic,
-                    aTraitement: !!rdv.consultation.traitementPrescrit,
-                    aDocuments: rdv.consultation.documentsJoints ? rdv.consultation.documentsJoints.split(',').length : 0
+                    aDocuments: rdv.consultation.documentsJoints ? (Array.isArray(rdv.consultation.documentsJoints) ? rdv.consultation.documentsJoints.length : 0) : 0
                 } : null;
 
                 // Actions possibles selon le statut et le rôle
@@ -294,8 +253,8 @@ router.get('/',
                 prochainRendezVous: null,
                 rendezVousEnCours: rendezVousEnriches.filter(rdv => rdv.statut === 'EN_COURS').length,
                 rendezVousAujourdHui: rendezVousEnriches.filter(rdv => {
-                    const aujourd_hui = new Date().toDateString();
-                    return new Date(rdv.dateHeureDebut).toDateString() === aujourd_hui;
+                    const aujourdhui = new Date().toDateString();
+                    return rdv.dateRendezVous.toDateString() === aujourdhui;
                 }).length
             };
 
@@ -340,14 +299,7 @@ router.get('/',
                     hasNext: pageInt < totalPages,
                     hasPrevious: pageInt > 1
                 },
-                filtres: {
-                    statut: statut || 'TOUS',
-                    dateDebut: dateDebut || null,
-                    dateFin: dateFin || null,
-                    typeConsultation: typeConsultation || 'TOUS',
-                    sortBy,
-                    sortOrder
-                },
+                // Pas de filtres - liste simple avec pagination
                 statistiques,
                 user: {
                     role: user.role,

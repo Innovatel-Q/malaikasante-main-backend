@@ -7,38 +7,10 @@ paths:
       summary: Lister les rendez-vous de l'utilisateur
       description: |
         Récupère la liste des rendez-vous de l'utilisateur connecté (patient ou médecin).
-        Permet de filtrer par statut, période, type de consultation avec pagination.
+        Liste complète avec pagination uniquement, triée par date de rendez-vous descendante.
       security:
         - bearerAuth: []
       parameters:
-        - name: statut
-          in: query
-          description: Filtrer par statut de rendez-vous
-          schema:
-            type: string
-            enum: [DEMANDE, EN_ATTENTE, CONFIRME, REFUSE, ANNULE, TERMINE]
-            example: "CONFIRME"
-        - name: dateDebut
-          in: query
-          description: Date de début de la période de recherche
-          schema:
-            type: string
-            format: date
-            example: "2024-02-01"
-        - name: dateFin
-          in: query
-          description: Date de fin de la période de recherche
-          schema:
-            type: string
-            format: date
-            example: "2024-02-28"
-        - name: typeConsultation
-          in: query
-          description: Filtrer par type de consultation
-          schema:
-            type: string
-            enum: [CLINIQUE, DOMICILE, TELECONSULTATION]
-            example: "CLINIQUE"
         - name: page
           in: query
           description: Numéro de la page
@@ -54,20 +26,6 @@ paths:
             minimum: 1
             maximum: 50
             default: 20
-        - name: sortBy
-          in: query
-          description: Champ de tri
-          schema:
-            type: string
-            enum: [dateHeureDebut, statut, createdAt]
-            default: dateHeureDebut
-        - name: sortOrder
-          in: query
-          description: Ordre de tri
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: desc
       responses:
         '200':
           description: Rendez-vous récupérés avec succès
@@ -110,29 +68,6 @@ components:
             $ref: '#/components/schemas/RendezVousListeItem'
         pagination:
           $ref: '#/components/schemas/Pagination'
-        filtres:
-          type: object
-          properties:
-            statut:
-              type: string
-              example: "TOUS"
-            dateDebut:
-              type: string
-              format: date
-              nullable: true
-            dateFin:
-              type: string
-              format: date
-              nullable: true
-            typeConsultation:
-              type: string
-              example: "TOUS"
-            sortBy:
-              type: string
-              example: "dateHeureDebut"
-            sortOrder:
-              type: string
-              example: "desc"
         statistiques:
           $ref: '#/components/schemas/StatistiquesRendezVous'
         user:
@@ -155,14 +90,21 @@ components:
           type: string
           format: uuid
           example: "456e7890-e89b-12d3-a456-426614174000"
-        dateHeureDebut:
+        dateRendezVous:
           type: string
-          format: date-time
-          example: "2024-02-15T10:00:00.000Z"
-        dateHeureFin:
+          format: date
+          description: Date du rendez-vous
+          example: "2024-02-15"
+        heureDebut:
           type: string
-          format: date-time
-          example: "2024-02-15T10:30:00.000Z"
+          pattern: "^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+          description: Heure de début
+          example: "10:00"
+        heureFin:
+          type: string
+          pattern: "^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+          description: Heure de fin
+          example: "10:30"
         typeConsultation:
           type: string
           example: "CLINIQUE"
@@ -175,15 +117,18 @@ components:
         niveauUrgence:
           type: string
           example: "NORMAL"
-        tarifPrevu:
+        tarif:
           type: number
+          format: decimal
+          description: Tarif de la consultation
           example: 25000
         adresseConsultation:
           type: string
           example: "123 Avenue de la République, Plateau"
-        informationsComplementaires:
+        symptomes:
           type: string
           nullable: true
+          description: Symptômes ou informations complémentaires
           example: "Patient sous traitement depuis 2 ans"
         estPasse:
           type: boolean
@@ -204,20 +149,6 @@ components:
         dateCreation:
           type: string
           format: date-time
-        dateReponse:
-          type: string
-          format: date-time
-          nullable: true
-        dateAnnulation:
-          type: string
-          format: date-time
-          nullable: true
-        messagePersonnaliseMedecin:
-          type: string
-          nullable: true
-        messagePersonnalisePatient:
-          type: string
-          nullable: true
         partenaire:
           oneOf:
             - $ref: '#/components/schemas/PartenairePatient'
@@ -242,8 +173,6 @@ components:
                     maximum: 5
                   commentaire:
                     type: string
-                  recommande:
-                    type: boolean
                   typeEvaluation:
                     type: string
                   date:
@@ -257,8 +186,6 @@ components:
               type: string
               format: uuid
             aDiagnostic:
-              type: boolean
-            aTraitement:
               type: boolean
             aDocuments:
               type: integer
@@ -317,21 +244,19 @@ components:
         prenom:
           type: string
           example: "Jean-Baptiste"
-        specialite:
-          type: string
-          example: "Cardiologie"
+        specialites:
+          type: array
+          items:
+            type: string
+          description: Liste des spécialités du médecin
+          example: ["CARDIOLOGIE", "MEDECINE_GENERALE"]
+          nullable: true
         telephone:
           type: string
           example: "0708123456"
         email:
           type: string
           format: email
-        adresseCabinet:
-          type: string
-          example: "123 Avenue de la République"
-        villeCabinet:
-          type: string
-          example: "Abidjan"
 
     StatistiquesRendezVous:
       type: object
