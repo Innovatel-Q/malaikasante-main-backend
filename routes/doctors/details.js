@@ -51,11 +51,9 @@ router.get('/:id',
                             nom: true,
                             adresse: true,
                             ville: true,
-                            codePostal: true,
                             telephone: true,
                             latitude: true,
-                            longitude: true,
-                            informationsAcces: true
+                            longitude: true
                         }
                     },
                     rendezVous: {
