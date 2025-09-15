@@ -221,23 +221,22 @@ router.get('/',
                     clinique: {
                         disponible: medecin.accepteclinique,
                         tarif: medecin.tarifConsultationBase,
-                        adresse: medecin.clinique?.adresse,
-                        ville: medecin.clinique?.ville,
-                        codePostal: medecin.clinique?.codePostal,
-                        informationsAcces: medecin.clinique?.informationsAcces
+                        clinique: medecin.clinique ? {
+                            nom: medecin.clinique.nom,
+                            adresse: medecin.clinique.adresse,
+                            ville: medecin.clinique.ville,
+                            telephone: medecin.clinique.telephone
+                        } : null
                     },
                     domicile: {
                         disponible: medecin.accepteDomicile,
                         tarif: medecin.tarifConsultationBase ?
-                            Math.round(medecin.tarifConsultationBase * TARIF_MULTIPLIERS.DOMICILE) : null,
-                        rayonKm: 15, // À configurer selon les préférences médecin
-                        fraisDeplacementParKm: 500
+                            Math.round(medecin.tarifConsultationBase * TARIF_MULTIPLIERS.DOMICILE) : null
                     },
                     teleconsultation: {
                         disponible: medecin.accepteTeleconsultation,
                         tarif: medecin.tarifConsultationBase ?
-                            Math.round(medecin.tarifConsultationBase * TARIF_MULTIPLIERS.TELECONSULTATION) : null,
-                        plateformesUtilisees: ["Zoom", "Google Meet"] // À récupérer des préférences médecin
+                            Math.round(medecin.tarifConsultationBase * TARIF_MULTIPLIERS.TELECONSULTATION) : null
                     }
                 },
                 horaires: horairesParsemaine,

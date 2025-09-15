@@ -161,49 +161,49 @@ components:
                 tarif:
                   type: number
                   example: 25000
-                adresse:
-                  type: string
-                  example: "123 Avenue de la République, Plateau"
-                ville:
-                  type: string
-                  example: "Abidjan"
-                codePostal:
-                  type: string
-                  example: "00225"
-                informationsAcces:
-                  type: string
-                  example: "2ème étage, ascenseur disponible"
+                  nullable: true
+                clinique:
+                  type: object
+                  nullable: true
+                  description: "Informations de la clinique associée"
+                  properties:
+                    nom:
+                      type: string
+                      example: "Clinique Sainte Marie"
+                    adresse:
+                      type: string
+                      example: "123 Avenue de la République, Plateau"
+                    ville:
+                      type: string
+                      example: "Abidjan"
+                    telephone:
+                      type: string
+                      nullable: true
+                      example: "0708123456"
             domicile:
               type: object
               properties:
                 disponible:
                   type: boolean
                   example: true
+                  description: "Indique si le médecin accepte les consultations à domicile"
                 tarif:
                   type: number
+                  nullable: true
                   example: 35000
-                rayonKm:
-                  type: integer
-                  example: 15
-                  description: "Rayon de déplacement en kilomètres"
-                fraisDeplacementParKm:
-                  type: number
-                  example: 500
-                  description: "Frais de déplacement par kilomètre"
+                  description: "Tarif pour une consultation à domicile"
             teleconsultation:
               type: object
               properties:
                 disponible:
                   type: boolean
                   example: true
+                  description: "Indique si le médecin accepte les téléconsultations"
                 tarif:
                   type: number
+                  nullable: true
                   example: 20000
-                plateformesUtilisees:
-                  type: array
-                  items:
-                    type: string
-                  example: ["Zoom", "Google Meet"]
+                  description: "Tarif pour une téléconsultation"
         horaires:
           type: object
           properties:
