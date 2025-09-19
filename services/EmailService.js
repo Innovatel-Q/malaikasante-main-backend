@@ -126,7 +126,7 @@ class EmailService {
             // Ajouter l'URL du logo aux variables
             const enhancedVariables = {
                 ...variables,
-                logoUrl: process.env.APP_URL ? `${process.env.APP_URL}/images/logo.png` : 'https://via.placeholder.com/180x60/009787/FFFFFF?text=MALAIKA'
+                logoUrl: `${process.env.APP_URL}/images/logo.png`
             };
 
             const html = await this.renderTemplate(templateName, enhancedVariables);
