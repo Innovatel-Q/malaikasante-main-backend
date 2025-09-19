@@ -125,6 +125,14 @@ class SmsService {
         const message = `✅ Rendez-vous confirmé avec Dr ${medecinName} le ${dateRendezVous} à ${heureRendezVous}. ${Consts.APP_NAME}`;
         return await this.sendSms(phone, message);
     }
+
+    /**
+     * Envoie un SMS générique avec formatage pour notifications
+     */
+    static async sendNotificationSms(phone, titre, message) {
+        const smsContent = `${titre}\n${message}\n${Consts.APP_NAME}`;
+        return await this.sendSms(phone, smsContent);
+    }
 }
 
 module.exports = SmsService;

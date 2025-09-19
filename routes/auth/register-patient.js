@@ -3,6 +3,7 @@ const router = express.Router();
 const prisma = require('../../prisma/client');
 const ApiResponse = require('../../services/ApiResponse');
 const TokenService = require('../../services/TokenService');
+const NotificationService = require('../../services/NotificationService');
 const BodyFilter = require('../../middleware/bodyFilterMiddleware');
 const Consts = require('../../config/const');
 const crypto = require('crypto'); // ← SEUL AJOUT
@@ -185,6 +186,15 @@ router.post('/',
             };
 
             console.log(`✅ Patient créé avec succès: ${result.user.prenom} ${result.user.nom} (ID: ${result.user.id})`);
+
+            // Envoyer email de bienvenue
+            try {
+                await NotificationService.notifyPatientBienvenue(result.patient);
+                console.log(`📧 Email de bienvenue envoyé à ${result.user.email}`);
+            } catch (emailError) {
+                console.error('Erreur envoi email bienvenue:', emailError);
+                // Ne pas faire échouer l'inscription si l'email échoue
+            }
 
             // ← RÉPONSE ORIGINALE INCHANGÉE
             return ApiResponse.created(res, 'Compte patient créé avec succès', {

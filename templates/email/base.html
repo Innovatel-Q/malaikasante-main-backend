@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{titre}} - Malaika</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #000000;
+            background-color: #f8f9fa;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            background-color: #f8f9fa;
+            padding: 20px 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+
+        /* Header avec logo */
+        .header {
+            background: linear-gradient(135deg, #009787 0%, #007a6b 100%);
+            color: #FFFFFF;
+            padding: 40px 30px 35px;
+            text-align: center;
+            position: relative;
+        }
+
+        .logo {
+            max-width: 180px;
+            height: auto;
+            margin: 0 auto 20px;
+            display: block;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .header .tagline {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 8px;
+            font-weight: 400;
+        }
+
+        /* Badge de notification */
+        .notification-badge {
+            display: inline-block;
+            background-color: #EE702B;
+            color: #FFFFFF;
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+        }
+
+        /* Contenu principal */
+        .content {
+            padding: 40px 30px;
+        }
+
+        .content h2 {
+            color: #009787;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            line-height: 1.3;
+            letter-spacing: -0.02em;
+        }
+
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 24px;
+            color: #000000;
+            font-weight: 500;
+        }
+
+        .message {
+            font-size: 16px;
+            line-height: 1.7;
+            color: #495057;
+            margin-bottom: 28px;
+        }
+
+        .message p {
+            margin-bottom: 16px;
+        }
+
+        .message p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Bouton d'action */
+        .cta-section {
+            text-align: center;
+            margin: 32px 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background-color: #009787;
+            color: #FFFFFF;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 151, 135, 0.25);
+        }
+
+        .cta-button:hover {
+            background-color: #007a6b;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 151, 135, 0.35);
+        }
+
+        /* Boîtes d'information */
+        .info-box {
+            background-color: #f8fffe;
+            border: 1px solid #bee5e3;
+            border-left: 4px solid #009787;
+            padding: 20px;
+            margin: 24px 0;
+            border-radius: 6px;
+        }
+
+        .info-box h4 {
+            color: #009787;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .warning-box {
+            background-color: #fff8f1;
+            border: 1px solid #fed7aa;
+            border-left: 4px solid #EE702B;
+            padding: 20px;
+            margin: 24px 0;
+            border-radius: 6px;
+        }
+
+        .warning-box h4 {
+            color: #EE702B;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        /* Liste de fonctionnalités */
+        .features-list {
+            margin: 24px 0;
+        }
+
+        .features-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features-list li {
+            padding: 10px 0;
+            position: relative;
+            padding-left: 28px;
+            color: #495057;
+            line-height: 1.5;
+        }
+
+        .features-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            top: 10px;
+            color: #009787;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* Séparateur */
+        .divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, #e9ecef, transparent);
+            margin: 32px 0;
+        }
+
+        /* Informations de contact */
+        .contact-section {
+            background-color: #f8f9fa;
+            padding: 24px;
+            margin: 24px 0;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .contact-section h4 {
+            color: #009787;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .contact-section p {
+            color: #6c757d;
+            margin: 4px 0;
+            font-size: 14px;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .footer .brand {
+            color: #009787;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .footer .tagline {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .footer .legal {
+            color: #868e96;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .footer .legal p {
+            margin: 4px 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .email-wrapper {
+                padding: 10px;
+            }
+
+            .email-container {
+                border-radius: 8px;
+                margin: 0 10px;
+            }
+
+            .header, .content, .footer {
+                padding: 24px 20px;
+            }
+
+            .content h2 {
+                font-size: 20px;
+            }
+
+            .logo {
+                max-width: 150px;
+            }
+
+            .cta-button {
+                padding: 14px 24px;
+                font-size: 15px;
+            }
+
+            .contact-section, .info-box, .warning-box {
+                padding: 16px;
+            }
+        }
+
+        /* Mode sombre (pour clients email qui le supportent) */
+        @media (prefers-color-scheme: dark) {
+            .email-container {
+                background-color: #FFFFFF !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <!-- Header avec logo -->
+            <div class="header">
+                <img src="{{logoUrl}}" alt="Malaika - Plateforme Médecins-Patients" class="logo">
+                <h1>Plateforme Médecins-Patients</h1>
+                <p class="tagline">Votre santé, notre priorité</p>
+            </div>
+
+            <!-- Contenu principal -->
+            <div class="content">
+                {{#if badge}}
+                <div class="notification-badge">{{badge}}</div>
+                {{/if}}
+
+                <h2>{{titre}}</h2>
+
+                <div class="greeting">
+                    Bonjour {{prenom}} {{nom}},
+                </div>
+
+                <div class="message">
+                    {{message}}
+                </div>
+
+                {{#if ctaText}}
+                <div class="cta-section">
+                    <a href="{{ctaUrl}}" class="cta-button">{{ctaText}}</a>
+                </div>
+                {{/if}}
+
+                {{#if features}}
+                <div class="features-list">
+                    <ul>
+                        {{#each features}}
+                        <li>{{this}}</li>
+                        {{/each}}
+                    </ul>
+                </div>
+                {{/if}}
+
+                {{#if infoBox}}
+                <div class="info-box">
+                    <h4>{{infoBox.title}}</h4>
+                    <div>{{infoBox.content}}</div>
+                </div>
+                {{/if}}
+
+                {{#if warningBox}}
+                <div class="warning-box">
+                    <h4>{{warningBox.title}}</h4>
+                    <div>{{warningBox.content}}</div>
+                </div>
+                {{/if}}
+
+                {{#if contactInfo}}
+                <div class="contact-section">
+                    <h4>💬 Besoin d'aide ?</h4>
+                    <p>Notre équipe support est là pour vous accompagner :</p>
+                    <p>📧 Email : <strong>support@malaika.ci</strong></p>
+                    <p>📞 Téléphone : <strong>+225 XX XX XX XX</strong></p>
+                    <p>🕒 Disponible du lundi au vendredi, 8h à 18h</p>
+                </div>
+                {{/if}}
+
+                {{#if details}}
+                <div class="divider"></div>
+                <div style="font-size: 14px; color: #6c757d; text-align: center;">
+                    {{details}}
+                </div>
+                {{/if}}
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <div class="brand">Malaika - Plateforme Médecins-Patients</div>
+                <div class="tagline">Connecter patients et médecins en Côte d'Ivoire</div>
+                <div class="legal">
+                    <p>© 2024 LYCORIS GROUP - Tous droits réservés</p>
+                    <p>Ceci est un email automatique, merci de ne pas répondre directement.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
