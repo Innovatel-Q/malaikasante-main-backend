@@ -247,10 +247,12 @@ router.post('/',
                             include: {
                                 user: {
                                     select: {
+                                        id: true,
                                         nom: true,
                                         prenom: true,
                                         telephone: true,
-                                        email: true
+                                        email: true,
+                                        canalCommunicationPrefere: true
                                     }
                                 }
                             }

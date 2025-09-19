@@ -263,8 +263,12 @@ class NotificationService {
     }
 
     static async notifyNouvelleDemandeRendezVous(rendezVous) {
-        const dateRdv = new Date(rendezVous.dateHeureDebut);
-        const message = `Nouvelle demande de rendez-vous de ${rendezVous.patient.user.prenom} ${rendezVous.patient.user.nom} pour le ${dateRdv.toLocaleDateString('fr-FR')} à ${dateRdv.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+        // Construire la date complète du rendez-vous
+        const dateRdv = new Date(rendezVous.dateRendezVous);
+        const [heures, minutes] = rendezVous.heureDebut.split(':');
+        dateRdv.setHours(parseInt(heures), parseInt(minutes), 0, 0);
+
+        const message = `Nouvelle demande de rendez-vous de ${rendezVous.patient.user.prenom} ${rendezVous.patient.user.nom} pour le ${dateRdv.toLocaleDateString('fr-FR')} à ${rendezVous.heureDebut}`;
 
         return await this.createAndSendNotification({
             userId: rendezVous.medecin.user.id,
@@ -276,7 +280,9 @@ class NotificationService {
             donneesSupplementaires: {
                 rendezVousId: rendezVous.id,
                 patientId: rendezVous.patientId,
-                dateRendezVous: rendezVous.dateHeureDebut
+                dateRendezVous: dateRdv.toISOString(),
+                typeConsultation: rendezVous.typeConsultation,
+                motifConsultation: rendezVous.motifConsultation
             }
         });
     }
