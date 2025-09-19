@@ -15,6 +15,10 @@ app.use(express.json({ limit: '10mb' })); // Support JSON avec limite
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
+// Servir les fichiers statiques (logo, images, etc.)
+app.use('/images', express.static('public/images'));
+app.use('/public', express.static('public'));
+
 // Middleware de gestion des CORS (pour les appels front-end)
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
