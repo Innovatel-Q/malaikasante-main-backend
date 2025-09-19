@@ -4,6 +4,7 @@ const prisma = require('../../prisma/client');
 const ApiResponse = require('../../services/ApiResponse');
 const AuthMiddleware = require('../../middleware/authMiddleware');
 const BodyFilter = require('../../middleware/bodyFilterMiddleware');
+const NotificationService = require('../../services/NotificationService');
 
 // Schéma de validation pour la demande de RDV
 const requestAppointmentSchema = {
@@ -289,6 +290,15 @@ router.post('/',
 
                 return nouveauRdv;
             });
+
+            // Envoyer email de notification au médecin
+            try {
+                await NotificationService.notifyNouvelleDemandeRendezVous(rendezVous);
+                console.log(`📧 Email de demande de RDV envoyé au Dr ${medecin.user.nom}`);
+            } catch (emailError) {
+                console.error('Erreur envoi email au médecin:', emailError);
+                // Ne pas faire échouer la demande si l'email échoue
+            }
 
             // Réponse de succès avec toutes les informations
             const reponse = {
