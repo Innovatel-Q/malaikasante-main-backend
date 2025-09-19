@@ -5,7 +5,6 @@ const prisma = require('../../prisma/client');
 const ApiResponse = require('../../services/ApiResponse');
 const EmailService = require('../../services/EmailService');
 const SmsService = require('../../services/SmsService');
-const TemplateService = require('../../services/TemplateService');
 const BodyFilter = require('../../middleware/bodyFilterMiddleware');
 
 // Schéma de validation pour forgot
@@ -166,16 +165,26 @@ router.post('/forgot',
             let sendResult = { success: false };
 
             if (sendMethod === 'EMAIL' && user.email) {
-                const emailHtml = await TemplateService.renderTemplate('password-reset', {
-                    userName: user.prenom,
-                    resetCode,
-                    resetUrl: `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`,
-                    expiryMinutes: 30
+                const emailHtml = await EmailService.renderTemplate('base', {
+                    titre: 'Réinitialisation de votre mot de passe',
+                    nom: user.nom,
+                    prenom: user.prenom,
+                    message: `Vous avez demandé la réinitialisation de votre mot de passe. Votre code de vérification est : <strong>${resetCode}</strong>
+
+Ce code est valable pendant 30 minutes.
+
+Vous pouvez également cliquer sur le lien suivant pour accéder directement au formulaire de réinitialisation :`,
+                    ctaText: 'Réinitialiser mon mot de passe',
+                    ctaUrl: `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`,
+                    warningBox: {
+                        title: '⚠️ Sécurité',
+                        content: 'Si vous n\'avez pas demandé cette réinitialisation, ignorez cet email et votre mot de passe restera inchangé.'
+                    }
                 });
 
                 sendResult = await EmailService.sendEmail({
                     to: user.email,
-                    subject: 'Réinitialisation de votre mot de passe',
+                    subject: 'Réinitialisation de votre mot de passe - Malaika',
                     html: emailHtml
                 });
 
