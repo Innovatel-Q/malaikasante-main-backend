@@ -307,13 +307,6 @@ class NotificationService {
 
 Vous faites maintenant partie d'une communauté qui facilite l'accès aux soins de santé en Côte d'Ivoire.`;
 
-        const featuresList = `<li>Rechercher des médecins par spécialité et localisation</li>
-<li>Consulter les profils détaillés des professionnels de santé</li>
-<li>Prendre rendez-vous en ligne en quelques clics</li>
-<li>Gérer vos consultations depuis votre tableau de bord</li>
-<li>Recevoir des rappels automatiques de vos rendez-vous</li>
-<li>Évaluer vos médecins après consultation</li>`;
-
         return await this.createAndSendNotification({
             userId: patient.userId,
             typeNotification: 'SYSTEME',
@@ -326,9 +319,6 @@ Vous faites maintenant partie d'une communauté qui facilite l'accès aux soins 
                 dateInscription: new Date(),
                 // Variables pour le template email
                 badge: 'Nouveau Patient',
-                featuresList: featuresList,
-                ctaText: '🔍 Rechercher un Médecin',
-                ctaUrl: process.env.FRONTEND_URL || 'https://malaika.ci',
                 showContactInfo: true
             }
         });

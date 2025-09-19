@@ -3,6 +3,7 @@ const router = express.Router();
 const prisma = require('../../prisma/client');
 const ApiResponse = require('../../services/ApiResponse');
 const AuthMiddleware = require('../../middleware/authMiddleware');
+const ContactMaskingService = require('../../services/ContactMaskingService');
 
 /**
  * GET /appointments - Lister les rendez-vous de l'utilisateur
@@ -177,24 +178,46 @@ router.get('/',
 
                 if (user.role === 'PATIENT') {
                     // Vue patient : informations sur le médecin
+                    const contactsInfo = {
+                        telephone: rdv.medecin.user.telephone,
+                        email: rdv.medecin.user.email
+                    };
+
+                    const contactsMasques = ContactMaskingService.applyContactMasking(
+                        contactsInfo,
+                        rdv.statut,
+                        user.role
+                    );
+
                     rdvEnrichi.partenaire = {
                         type: 'medecin',
                         id: rdv.medecin.id,
                         nom: rdv.medecin.user.nom,
                         prenom: rdv.medecin.user.prenom,
                         specialites: rdv.medecin.specialites,
-                        telephone: rdv.medecin.user.telephone,
-                        email: rdv.medecin.user.email
+                        telephone: contactsMasques.telephone,
+                        email: contactsMasques.email
                     };
                 } else {
                     // Vue médecin : informations sur le patient
+                    const contactsInfo = {
+                        telephone: rdv.patient.user.telephone,
+                        email: rdv.patient.user.email
+                    };
+
+                    const contactsMasques = ContactMaskingService.applyContactMasking(
+                        contactsInfo,
+                        rdv.statut,
+                        user.role
+                    );
+
                     rdvEnrichi.partenaire = {
                         type: 'patient',
                         id: rdv.patient.id,
                         nom: rdv.patient.user.nom,
                         prenom: rdv.patient.user.prenom,
-                        telephone: rdv.patient.user.telephone,
-                        email: rdv.patient.user.email,
+                        telephone: contactsMasques.telephone,
+                        email: contactsMasques.email,
                         age: rdv.patient.dateNaissance ?
                             Math.floor((new Date() - new Date(rdv.patient.dateNaissance)) / (365.25 * 24 * 60 * 60 * 1000)) : null,
                         sexe: rdv.patient.sexe,
