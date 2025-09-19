@@ -48,9 +48,27 @@ class EmailService {
     replaceVariables(template, variables) {
         let result = template;
 
+        // Variables de base
         for (const [key, value] of Object.entries(variables)) {
             const regex = new RegExp(`{{${key}}}`, 'g');
             result = result.replace(regex, value || '');
+        }
+
+        // Gestion des classes conditionnelles pour masquer/afficher les sections
+        const conditionalClasses = {
+            badgeClass: variables.badge ? '' : 'hidden',
+            ctaClass: variables.ctaText ? '' : 'hidden',
+            featuresClass: variables.featuresList ? '' : 'hidden',
+            infoBoxClass: variables.infoBoxTitle ? '' : 'hidden',
+            warningBoxClass: variables.warningBoxTitle ? '' : 'hidden',
+            contactInfoClass: variables.showContactInfo ? '' : 'hidden',
+            detailsClass: variables.details ? '' : 'hidden'
+        };
+
+        // Remplacer les classes conditionnelles
+        for (const [key, value] of Object.entries(conditionalClasses)) {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            result = result.replace(regex, value);
         }
 
         return result;

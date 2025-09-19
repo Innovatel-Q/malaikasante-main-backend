@@ -87,17 +87,21 @@ class NotificationService {
             const canalUtilise = notification.canal || notification.user.canalCommunicationPrefere || 'EMAIL';
 
             if (canalUtilise === 'EMAIL') {
+                // Préparer les variables pour le template
+                const templateVariables = {
+                    nom: notification.user.nom,
+                    prenom: notification.user.prenom,
+                    titre: notification.titre,
+                    message: notification.message,
+                    // Ajouter les données supplémentaires directement aux variables
+                    ...(notification.donneesSupplementaires || {})
+                };
+
                 const emailResult = await EmailService.sendNotificationEmail({
                     to: notification.user.email,
                     subject: notification.titre,
                     templateName: this._getEmailTemplate(notification.typeNotification),
-                    variables: {
-                        nom: notification.user.nom,
-                        prenom: notification.user.prenom,
-                        titre: notification.titre,
-                        message: notification.message,
-                        donneesSupplementaires: notification.donneesSupplementaires
-                    }
+                    variables: templateVariables
                 });
                 success = emailResult.success;
                 errorMessage = emailResult.error;
@@ -299,29 +303,33 @@ class NotificationService {
      */
 
     static async notifyPatientBienvenue(patient) {
-        const message = `Félicitations ! Votre compte patient a été créé avec succès sur notre plateforme médicale. Vous pouvez maintenant rechercher des médecins, prendre rendez-vous en ligne, et gérer vos consultations depuis votre tableau de bord.
+        const message = `Félicitations ! Votre compte patient a été créé avec succès sur notre plateforme médicale.
 
-🚀 Ce que vous pouvez faire dès maintenant :
-• Rechercher des médecins par spécialité et localisation
-• Consulter les profils détaillés des professionnels de santé
-• Prendre rendez-vous en ligne en quelques clics
-• Recevoir des rappels automatiques de vos rendez-vous
-• Évaluer vos médecins après consultation
+Vous faites maintenant partie d'une communauté qui facilite l'accès aux soins de santé en Côte d'Ivoire.`;
 
-Besoin d'aide ? Contactez notre support : support@medecins-patients.ci
-
-Merci de nous faire confiance pour votre santé ! 🙏`;
+        const featuresList = `<li>Rechercher des médecins par spécialité et localisation</li>
+<li>Consulter les profils détaillés des professionnels de santé</li>
+<li>Prendre rendez-vous en ligne en quelques clics</li>
+<li>Gérer vos consultations depuis votre tableau de bord</li>
+<li>Recevoir des rappels automatiques de vos rendez-vous</li>
+<li>Évaluer vos médecins après consultation</li>`;
 
         return await this.createAndSendNotification({
             userId: patient.userId,
             typeNotification: 'SYSTEME',
-            titre: '🎉 Bienvenue sur la Plateforme Médecins-Patients',
+            titre: '🎉 Bienvenue sur Malaika',
             message,
             canal: 'EMAIL',
             priorite: 'NORMALE',
             donneesSupplementaires: {
                 typeCompte: 'PATIENT',
-                dateInscription: new Date()
+                dateInscription: new Date(),
+                // Variables pour le template email
+                badge: 'Nouveau Patient',
+                featuresList: featuresList,
+                ctaText: '🔍 Rechercher un Médecin',
+                ctaUrl: process.env.FRONTEND_URL || 'https://malaika.ci',
+                showContactInfo: true
             }
         });
     }

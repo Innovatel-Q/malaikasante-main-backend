@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const prisma = require('../../prisma/client');
 const ApiResponse = require('../../services/ApiResponse');
 const AuthMiddleware = require('../../middleware/authMiddleware');
@@ -17,11 +18,14 @@ router.post('/',
 
             console.log(`🚪 Déconnexion session actuelle pour: ${user.prenom} ${user.nom}`);
 
+            // Hash du token actuel pour la recherche en base
+            const currentTokenHash = crypto.createHash('sha256').update(currentToken).digest('hex');
+
             // Révocation uniquement du token actuel
             const revokedTokens = await prisma.userToken.updateMany({
                 where: {
                     userId: user.id,
-                    token: currentToken,
+                    tokenHash: currentTokenHash, // Utiliser tokenHash au lieu de token
                     utilise: false
                 },
                 data: {
@@ -69,11 +73,11 @@ router.delete('/all',
             const revokedTokens = await prisma.userToken.updateMany({
                 where: {
                     userId: user.id,
-                    type: {
+                    typeToken: {
                         in: ['ACCESS', 'REFRESH']
                     },
                     utilise: false,
-                    expiresAt: {
+                    dateExpiration: {
                         gt: new Date()
                     }
                 },

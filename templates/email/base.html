@@ -106,6 +106,7 @@
             line-height: 1.7;
             color: #495057;
             margin-bottom: 28px;
+            white-space: pre-line;
         }
 
         .message p {
@@ -262,6 +263,11 @@
             margin: 4px 0;
         }
 
+        /* Classes conditionnelles pour affichage */
+        .hidden {
+            display: none !important;
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             .email-wrapper {
@@ -315,9 +321,8 @@
 
             <!-- Contenu principal -->
             <div class="content">
-                {{#if badge}}
-                <div class="notification-badge">{{badge}}</div>
-                {{/if}}
+                <!-- Badge optionnel -->
+                <div class="notification-badge {{badgeClass}}">{{badge}}</div>
 
                 <h2>{{titre}}</h2>
 
@@ -325,56 +330,48 @@
                     Bonjour {{prenom}} {{nom}},
                 </div>
 
-                <div class="message">
-                    {{message}}
-                </div>
+                <div class="message">{{message}}</div>
 
-                {{#if ctaText}}
-                <div class="cta-section">
+                <!-- Bouton CTA optionnel -->
+                <div class="cta-section {{ctaClass}}">
                     <a href="{{ctaUrl}}" class="cta-button">{{ctaText}}</a>
                 </div>
-                {{/if}}
 
-                {{#if features}}
-                <div class="features-list">
+                <!-- Liste de fonctionnalités optionnelle -->
+                <div class="features-list {{featuresClass}}">
                     <ul>
-                        {{#each features}}
-                        <li>{{this}}</li>
-                        {{/each}}
+                        {{featuresList}}
                     </ul>
                 </div>
-                {{/if}}
 
-                {{#if infoBox}}
-                <div class="info-box">
-                    <h4>{{infoBox.title}}</h4>
-                    <div>{{infoBox.content}}</div>
+                <!-- Boîte d'information optionnelle -->
+                <div class="info-box {{infoBoxClass}}">
+                    <h4>{{infoBoxTitle}}</h4>
+                    <div>{{infoBoxContent}}</div>
                 </div>
-                {{/if}}
 
-                {{#if warningBox}}
-                <div class="warning-box">
-                    <h4>{{warningBox.title}}</h4>
-                    <div>{{warningBox.content}}</div>
+                <!-- Boîte d'avertissement optionnelle -->
+                <div class="warning-box {{warningBoxClass}}">
+                    <h4>{{warningBoxTitle}}</h4>
+                    <div>{{warningBoxContent}}</div>
                 </div>
-                {{/if}}
 
-                {{#if contactInfo}}
-                <div class="contact-section">
+                <!-- Section contact optionnelle -->
+                <div class="contact-section {{contactInfoClass}}">
                     <h4>💬 Besoin d'aide ?</h4>
                     <p>Notre équipe support est là pour vous accompagner :</p>
                     <p>📧 Email : <strong>support@malaika.ci</strong></p>
                     <p>📞 Téléphone : <strong>+225 XX XX XX XX</strong></p>
                     <p>🕒 Disponible du lundi au vendredi, 8h à 18h</p>
                 </div>
-                {{/if}}
 
-                {{#if details}}
-                <div class="divider"></div>
-                <div style="font-size: 14px; color: #6c757d; text-align: center;">
-                    {{details}}
+                <!-- Détails optionnels -->
+                <div class="{{detailsClass}}">
+                    <div class="divider"></div>
+                    <div style="font-size: 14px; color: #6c757d; text-align: center;">
+                        {{details}}
+                    </div>
                 </div>
-                {{/if}}
             </div>
 
             <!-- Footer -->
