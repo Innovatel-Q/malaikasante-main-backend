@@ -473,14 +473,14 @@ Vous faites maintenant partie d'une communauté qui facilite l'accès aux soins 
      */
     static _getEmailTemplate(typeNotification) {
         const templates = {
-            'RENDEZ_VOUS': 'rendez-vous',
-            'VALIDATION_COMPTE': 'validation-compte',
-            'PAIEMENT': 'paiement',
-            'RAPPEL': 'rappel',
-            'SYSTEME': 'systeme'
+            'RENDEZ_VOUS': 'base',
+            'VALIDATION_COMPTE': 'base',
+            'PAIEMENT': 'base',
+            'RAPPEL': 'base',
+            'SYSTEME': 'base'
         };
 
-        return templates[typeNotification] || 'default';
+        return templates[typeNotification] || 'base';
     }
 }
 
